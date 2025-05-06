@@ -1,0 +1,54 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #181A20;
+    color: #EAECEF;
+}
+.bg-dark {
+    background-color: #181A20;
+}
+.bg-darker {
+    background-color: #0B0E11;
+}
+.bg-accent {
+    background-color: #F0B90B;
+}
+.text-accent {
+    color: #F0B90B;
+}
+.border-accent {
+    border-color: #F0B90B;
+}
+.positive {
+    color: #0ECB81;
+}
+.negative {
+    color: #F6465D;
+}
+.chart-container {
+    height: 400px;
+}
+.tab-active {
+    border-bottom: 2px solid #F0B90B;
+    color: #F0B90B;
+}
+.trade-btn {
+    transition: all 0.2s ease;
+}
+.trade-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(240, 185, 11, 0.3);
+}
+.stock-card:hover {
+    background-color: #1E2329;
+    transform: translateY(-2px);
+}
+.skeleton {
+    background-color: #1E2329;
+    background-image: linear-gradient(90deg, #1E2329, #2A3139, #1E2329);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
