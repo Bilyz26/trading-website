@@ -1,6 +1,66 @@
+const FINNHUB_API_KEY = 'd0cfedhr01ql2j3cqmqgd0cfedhr01ql2j3cqmr0';
+
+// Available stocks with full company names
+const STOCKS = [
+    { symbol: 'AAPL', name: 'Apple Inc.' },
+    { symbol: 'MSFT', name: 'Microsoft Corporation' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+    { symbol: 'META', name: 'Meta Platforms Inc.' },
+    { symbol: 'TSLA', name: 'Tesla Inc.' }
+];
+
 // Theme Toggle
 document.getElementById('theme-toggle').addEventListener('click', function() {
     document.documentElement.classList.toggle('dark');
+});
+
+// Sidebar Navigation
+document.addEventListener('DOMContentLoaded', () => {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('section[id]');
+
+    // Smooth scroll to section when clicking nav links
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('href');
+            const targetSection = document.querySelector(targetId);
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+
+    // Update active link based on scroll position
+    function updateActiveLink() {
+        const fromTop = window.scrollY + 100; // Offset for header
+
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.offsetHeight;
+            const sectionId = section.getAttribute('id');
+            const correspondingLink = document.querySelector(`.nav-link[href="#${sectionId}"]`);
+
+            if (fromTop >= sectionTop && fromTop < sectionTop + sectionHeight) {
+                // Remove active class from all links
+                navLinks.forEach(link => {
+                    link.classList.remove('bg-gray-800', 'text-accent');
+                    link.classList.add('text-gray-400');
+                });
+                // Add active class to current link
+                if (correspondingLink) {
+                    correspondingLink.classList.remove('text-gray-400');
+                    correspondingLink.classList.add('bg-gray-800', 'text-accent');
+                }
+            }
+        });
+    }
+
+    // Listen for scroll events
+    const mainPanel = document.querySelector('main');
+    mainPanel.addEventListener('scroll', updateActiveLink);
+    updateActiveLink(); // Initial check
 });
 
 // Tab Functionality
@@ -199,47 +259,111 @@ async function updatePortfolioTable() {
     tableBody.innerHTML = portfolioHTML;
 }
 
-// Real-time updates every 2 seconds
-setInterval(async () => {
-    // Update all stocks simultaneously
-    await Promise.all(STOCKS.map(async (symbol, index) => {
-        const stockData = await fetchStockData(symbol);
-        if (stockData) {
-            // Update stock card
-            const priceElement = document.querySelector(`#stock${index + 1} .price`);
-            const changeElement = document.querySelector(`#stock${index + 1} .change`);
-            if (priceElement) priceElement.textContent = `$${stockData.c.toFixed(2)}`;
-            if (changeElement) {
-                const change = `${stockData.d >= 0 ? '+' : ''}${stockData.d.toFixed(2)} (${stockData.dp.toFixed(2)}%)`;
-                changeElement.textContent = change;
-                changeElement.classList.remove('positive', 'negative');
-                changeElement.classList.add(stockData.d >= 0 ? 'positive' : 'negative');
-            }
+// Create stock card HTML
+function createStockCard(stock) {
+    return `
+        <div class="bg-darker rounded-lg overflow-hidden hover:ring-1 hover:ring-yellow-400 cursor-pointer transition-all" onclick="selectStock('${stock.symbol}')">
+            <div class="p-4 border-b border-gray-800">
+                <div class="flex items-center space-x-4">
+                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
+                        <span class="text-lg">${stock.symbol[0]}</span>
+                    </div>
+                    <div>
+                        <div class="font-bold text-lg text-white">${stock.symbol}</div>
+                        <div class="text-sm text-gray-400">${stock.name}</div>
+                    </div>
+                    <div class="ml-auto text-right">
+                        <div class="font-bold text-xl text-white" id="price-${stock.symbol}">Loading...</div>
+                        <div class="text-sm" id="change-${stock.symbol}">--</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
-            // Update mini chart
-            const chart = Chart.getChart(`miniChart${index + 1}`);
-            if (chart) {
-                chart.data.datasets[0].data.shift();
-                chart.data.datasets[0].data.push(stockData.c);
-                chart.update('none'); // Use 'none' for better performance
-            }
+// Initialize stock cards
+function initializeStockCards() {
+    const stockCardsContainer = document.getElementById('stockCards');
+    stockCardsContainer.innerHTML = STOCKS.map(stock => createStockCard(stock)).join('');
+    updateAllStockPrices();
+}
 
-            // Update main chart if it's the first stock (AAPL)
-            if (index === 0) {
-                mainChart.data.datasets[0].data.shift();
-                mainChart.data.datasets[0].data.push(stockData.c);
-                mainChart.update('none');
-            }
+// Update stock price and change
+async function updateStockPrice(symbol) {
+    try {
+        const quote = await fetchStockData(symbol);
+        if (quote) {
+            const priceElement = document.getElementById(`price-${symbol}`);
+            const changeElement = document.getElementById(`change-${symbol}`);
+            
+            const price = quote.c.toFixed(2);
+            const change = quote.d.toFixed(2);
+            const changePercent = quote.dp.toFixed(2);
+            
+            priceElement.innerText = `$${price}`;
+            changeElement.innerText = `${changePercent > 0 ? '+' : ''}${changePercent}% ($${change})`;
+            changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
         }
-    }));
+    } catch (error) {
+        console.error(`Error updating stock price for ${symbol}:`, error);
+    }
+}
 
-    // Update portfolio table
-    await updatePortfolioTable();
-}, 2000); // Update every 5 seconds to stay within rate limits
+// Update all stock prices
+async function updateAllStockPrices() {
+    for (const stock of STOCKS) {
+        await updateStockPrice(stock.symbol);
+    }
+}
 
-// Finnhub API configuration
-const FINNHUB_API_KEY = 'd0cfedhr01ql2j3cqmqgd0cfedhr01ql2j3cqmr0';
-const STOCKS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN'];
+// Select stock and update detail view
+async function selectStock(symbol) {
+    const stock = STOCKS.find(s => s.symbol === symbol);
+    if (!stock) return;
+
+    // Update detail view
+    document.getElementById('stockSymbolIcon').innerText = symbol[0];
+    document.getElementById('stockSymbol').innerText = symbol;
+    document.getElementById('stockName').innerText = stock.name;
+    
+    const quote = await fetchStockData(symbol);
+    if (quote) {
+        const price = quote.c.toFixed(2);
+        const change = quote.d.toFixed(2);
+        const changePercent = quote.dp.toFixed(2);
+        
+        document.getElementById('stockPrice').innerText = `$${price}`;
+        document.getElementById('stockChange').innerText = `${changePercent > 0 ? '+' : ''}${changePercent}% ($${change})`;
+        document.getElementById('stockChange').className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
+    }
+
+    // Show detail section
+    document.getElementById('stockDetail').classList.remove('hidden');
+
+    // Update chart
+    await updateChartWithSymbol(symbol);
+}
+
+// Update chart with new symbol
+async function updateChartWithSymbol(symbol) {
+    try {
+        const data = await fetchCandleData(symbol);
+        if (data && data.s === 'ok') {
+            mainChart.data.datasets[0].data = data.c;
+            mainChart.data.labels = data.t.map(timestamp => {
+                const date = new Date(timestamp * 1000);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            });
+            mainChart.update();
+        }
+    } catch (error) {
+        console.error('Error updating chart:', error);
+    }
+}
+
+// Real-time updates every 10 seconds
+setInterval(updateAllStockPrices, 10000);
 
 // Fetch real-time stock data from Finnhub
 async function fetchStockData(symbol) {
@@ -267,34 +391,17 @@ async function fetchCandleData(symbol, resolution = 'D', count = 30) {
     }
 }
 
-// Initialize with real data
+// Initialize everything when the DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Initialize stock cards
+        initializeStockCards();
+        
         // Initialize main chart with AAPL data
-        const mainChartData = await fetchCandleData('AAPL', 'D', 30);
-        if (mainChartData && mainChartData.s === 'ok') {
-            mainChart.data.datasets[0].data = mainChartData.c;
-            mainChart.data.labels = mainChartData.t.map(timestamp => {
-                const date = new Date(timestamp * 1000);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            });
-            mainChart.update();
-        }
-
-        // Update stock cards with current prices
-        for (let i = 0; i < STOCKS.length; i++) {
-            const stockData = await fetchStockData(STOCKS[i]);
-            if (stockData) {
-                const priceElement = document.querySelector(`#stock${i + 1} .price`);
-                const changeElement = document.querySelector(`#stock${i + 1} .change`);
-                if (priceElement) priceElement.textContent = `$${stockData.c.toFixed(2)}`;
-                if (changeElement) {
-                    const change = `${stockData.d >= 0 ? '+' : ''}${stockData.d.toFixed(2)} (${stockData.dp.toFixed(2)}%)`;
-                    changeElement.textContent = change;
-                    changeElement.classList.add(stockData.d >= 0 ? 'positive' : 'negative');
-                }
-            }
-        }
+        await selectStock('AAPL');
+        
+        // Start real-time updates
+        updateAllStockPrices();
     } catch (error) {
         console.error('Error initializing data:', error);
     }

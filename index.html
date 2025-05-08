@@ -39,47 +39,38 @@
         <!-- Main Content -->
         <div class="flex flex-1 overflow-hidden">
             <!-- Sidebar -->
-            <aside class="w-64 bg-darker border-r border-gray-800 hidden md:block">
+            <aside class="w-64 bg-darker border-r border-gray-800 hidden md:block fixed h-full top-[73px]">
                 <nav class="p-4">
                     <ul class="space-y-2">
                         <li>
-                            <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg bg-gray-800 text-accent">
+                            <a href="#marketOverview" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg bg-gray-800 text-accent">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
                                     <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
                                 </svg>
-                                <span>Dashboard</span>
+                                <span>Market Overview</span>
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
+                            <a href="#portfolio" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
-                                </svg>
-                                <span>Markets</span>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-                                    <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" />
                                 </svg>
                                 <span>Portfolio</span>
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
+                            <a href="#tradingHistory" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                                    <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6zm1 2a1 1 0 000 2h6a1 1 0 100-2H7zm6 7a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1zm-3 3a1 1 0 100 2h.01a1 1 0 100-2H10z" clip-rule="evenodd" />
                                 </svg>
                                 <span>History</span>
                             </a>
                         </li>
                         <li>
-                            <a href="#" class="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
+                            <a href="#leaderboard" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.846V15.5a1 1 0 001 1h1a1 1 0 001-1v-1.086l1.33.571a1 1 0 00.787 0l7-3a1 1 0 00-.787-1.838l-7.665 3.286-1.767-.756a1 1 0 00-.787 0L3.31 9.397z" />
+                                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                                 </svg>
                                 <span>Leaderboard</span>
                             </a>
@@ -89,10 +80,10 @@
             </aside>
 
             <!-- Main Panel -->
-            <main class="flex-1 overflow-auto p-6">
+            <main class="flex-1 overflow-auto p-6 ml-64 hide-scrollbar">
                 <div class="max-w-7xl mx-auto">
                     <!-- Market Overview -->
-                    <section class="mb-8">
+                    <section id="marketOverview" class="mb-8">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-bold">Market Overview</h2>
                             <div class="flex space-x-2">
@@ -101,74 +92,28 @@
                                 <button class="px-3 py-1 text-sm bg-gray-800 rounded-lg">Indices</button>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <!-- Stock Cards -->
-                            <div id="stock1" class="stock-card bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="text-sm text-gray-400">AAPL</div>
-                                        <div class="text-lg font-bold price">Loading...</div>
-                                        <div class="text-sm change">--</div>
-                                    </div>
-                                </div>
-                                <div class="mt-4 h-20">
-                                    <canvas class="w-full h-full" id="miniChart1"></canvas>
-                                </div>
-                            </div>
-                            <div id="stock2" class="stock-card bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="text-sm text-gray-400">MSFT</div>
-                                        <div class="text-lg font-bold price">Loading...</div>
-                                        <div class="text-sm change">--</div>
-                                    </div>
-                                </div>
-                                <div class="mt-4 h-20">
-                                    <canvas class="w-full h-full" id="miniChart2"></canvas>
-                                </div>
-                            </div>
-                            <div id="stock3" class="stock-card bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="text-sm text-gray-400">GOOGL</div>
-                                        <div class="text-lg font-bold price">Loading...</div>
-                                        <div class="text-sm change">--</div>
-                                    </div>
-                                </div>
-                                <div class="mt-4 h-20">
-                                    <canvas class="w-full h-full" id="miniChart3"></canvas>
-                                </div>
-                            </div>
-                            <div id="stock4" class="stock-card bg-gray-800 rounded-lg p-4 cursor-pointer transition-all duration-200">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="text-sm text-gray-400">AMZN</div>
-                                        <div class="text-lg font-bold price">Loading...</div>
-                                        <div class="text-sm change">--</div>
-                                    </div>
-                                </div>
-                                <div class="mt-4 h-20">
-                                    <canvas class="w-full h-full" id="miniChart4"></canvas>
-                                </div>
-                            </div>
-                        </div>
+                    </section>
+
+                    <!-- Stock Cards Section -->
+                    <section id="stockCards" class="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Stock cards will be dynamically inserted here -->
                     </section>
 
                     <!-- Stock Detail Section -->
-                    <section class="mb-8">
+                    <section id="stockDetail" class="mb-8 hidden">
                         <div class="bg-darker rounded-lg overflow-hidden">
                             <div class="p-4 border-b border-gray-800">
                                 <div class="flex items-center space-x-4">
-                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
-                                        <span class="text-lg">A</span>
+                                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
+                                        <span id="stockSymbolIcon" class="text-lg">A</span>
                                     </div>
                                     <div>
-                                        <div class="font-bold text-lg">AAPL</div>
-                                        <div class="text-sm text-gray-400">Apple Inc.</div>
+                                        <div id="stockSymbol" class="font-bold text-lg text-white">AAPL</div>
+                                        <div id="stockName" class="text-sm text-gray-400">Apple Inc.</div>
                                     </div>
                                     <div class="ml-auto text-right">
-                                        <div class="font-bold text-xl">$174.22</div>
-                                        <div class="text-sm positive">+2.45% ($4.17)</div>
+                                        <div id="stockPrice" class="font-bold text-xl text-white">$174.22</div>
+                                        <div id="stockChange" class="text-sm text-green-500">+2.45% ($4.17)</div>
                                     </div>
                                 </div>
                             </div>
@@ -258,7 +203,7 @@
                     </section>
 
                     <!-- Portfolio Section -->
-                    <section class="mb-8">
+                    <section id="portfolio" class="mb-8">
                         <h2 class="text-xl font-bold mb-4">Your Portfolio</h2>
                         <div class="bg-darker rounded-lg overflow-hidden">
                             <div class="overflow-x-auto">
@@ -290,10 +235,6 @@
                                     </tbody>
                                 </table>
                             </div>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
                             <div class="bg-gray-800 px-6 py-4 flex justify-between items-center">
                                 <div class="text-sm text-gray-400">Total Portfolio Value</div>
                                 <div class="text-xl font-bold">$102,563.30</div>
@@ -302,7 +243,31 @@
                     </section>
 
                     <!-- Leaderboard Section -->
-                    <section>
+                    <section id="tradingHistory" class="mb-8">
+                        <h2 class="text-xl font-bold mb-4">Trading History</h2>
+                        <div class="bg-darker rounded-lg overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-800">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Asset</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Quantity</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Price</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-800">
+                                        <!-- Trading history data will be dynamically inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Leaderboard Section -->
+                    <section id="leaderboard" class="mb-8">
                         <h2 class="text-xl font-bold mb-4">Top Traders</h2>
                         <div class="bg-darker rounded-lg overflow-hidden">
                             <div class="overflow-x-auto">
