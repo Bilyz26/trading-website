@@ -12,8 +12,10 @@
 </head>
 <body>
     <div class="min-h-screen flex flex-col">
-        <!-- Header -->
-        <header class="bg-darker py-4 px-6 border-b border-gray-800">
+        <!-- Fixed Header -->
+        <header class="bg-darker py-4 px-6 border-b border-gray-800 fixed top-0 left-0 right-0 z-50">
+            <!-- Filter buttons -->
+            <div class="flex justify-between items-center max-w-7xl mx-auto">
             <div class="flex justify-between items-center">
                 <div class="flex items-center space-x-2">
                     <div class="text-accent font-bold text-2xl">TradeSim</div>
@@ -33,8 +35,16 @@
                         <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-dark font-bold">U</div>
                     </button>
                 </div>
+                <!-- Market Filter -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <button class="px-3 py-1 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg text-accent">Stocks</button>
+                    <button class="px-3 py-1 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400">Crypto</button>
+                    <button class="px-3 py-1 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400">Indices</button>
+                </div>
             </div>
         </header>
+        <!-- Spacer for fixed header -->
+        <div class="h-[73px]"></div>
 
         <!-- Main Content -->
         <div class="flex flex-1 overflow-hidden">
