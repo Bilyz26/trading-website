@@ -13,27 +13,31 @@
 <body>
     <div class="min-h-screen flex flex-col">
         <!-- Fixed Header -->
-        <header class="bg-darker py-4 px-6 border-b border-gray-800 fixed top-0 left-0 right-0 z-50">
+        <header class="bg-darker py-3 sm:py-4 px-4 sm:px-6 border-b border-gray-800 fixed top-0 left-0 right-0 z-50">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <!-- Left: Logo & Demo Tag -->
+                <!-- Left: Logo & Menu -->
                 <div class="flex items-center space-x-2">
-                    <div class="text-accent font-bold text-2xl">TradeSim</div>
-                    <div class="text-sm bg-gray-800 px-2 py-1 rounded">DEMO</div>
-                </div>
-
-                <!-- Right: Theme, Balance & User -->
-                <div class="flex items-center space-x-6">
-                    <button id="theme-toggle" class="text-gray-400 hover:text-accent transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    <button id="sidebar-toggle" class="lg:hidden text-gray-400 hover:text-accent p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
-                    <div class="flex items-center space-x-2 header-balance">
-                        <div class="text-sm text-gray-400">Balance:</div>
-                        <div id="balance" class="font-bold text-accent">$100,000.00</div>
+                    <div class="text-accent font-bold text-lg sm:text-xl lg:text-2xl">TradeSim</div>
+                    <div class="text-xs sm:text-sm bg-gray-800 px-2 py-0.5 sm:py-1 rounded hidden sm:block">DEMO</div>
+                </div>
+
+                <!-- Right: Theme & User -->
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <div class="hidden sm:flex items-center space-x-2">
+                        <div class="text-xs sm:text-sm text-gray-400">$100,000.00</div>
                     </div>
-                    <button id="user-menu" class="flex items-center space-x-1 hover:opacity-80 transition-opacity">
-                        <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-dark font-bold">U</div>
+                    <button id="theme-toggle" class="text-gray-400 hover:text-accent transition-colors p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+                    <button id="user-menu" class="flex items-center hover:opacity-80 transition-opacity">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent flex items-center justify-center text-dark font-bold text-sm sm:text-base">U</div>
                     </button>
                 </div>
             </div>
@@ -89,12 +93,12 @@
                 <div class="max-w-7xl mx-auto">
                     <!-- Market Overview -->
                     <section id="marketOverview" class="mb-8">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-xl font-bold">Market Overview</h2>
-                            <div class="flex space-x-2 market-filter md:flex md:space-x-2 lg:flex lg:space-x-2" id="marketFilter">
-                                <button class="market-btn px-3 py-1 text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all" data-market="stocks">Stocks</button>
-                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="crypto">Crypto</button>
-                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="forex">Forex</button>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
+                            <h2 class="text-lg sm:text-xl font-bold">Market Overview</h2>
+                            <div class="flex space-x-2 market-filter" id="marketFilter">
+                                <button class="market-btn px-2 sm:px-3 py-1 text-xs sm:text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all" data-market="stocks">Stocks</button>
+                                <button class="market-btn px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="crypto">Crypto</button>
+                                <button class="market-btn px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="forex">Forex</button>
                             </div>
                         </div>
                     </section>
