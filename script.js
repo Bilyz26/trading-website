@@ -1,14 +1,36 @@
 const FINNHUB_API_KEY = 'd0cfedhr01ql2j3cqmqgd0cfedhr01ql2j3cqmr0';
 
-// Available stocks with full company names
-const STOCKS = [
-    { symbol: 'AAPL', name: 'Apple Inc.' },
-    { symbol: 'MSFT', name: 'Microsoft Corporation' },
-    { symbol: 'GOOGL', name: 'Alphabet Inc.' },
-    { symbol: 'AMZN', name: 'Amazon.com Inc.' },
-    { symbol: 'META', name: 'Meta Platforms Inc.' },
-    { symbol: 'TSLA', name: 'Tesla Inc.' }
-];
+// Market data configuration
+const MARKET_DATA = {
+    stocks: [
+        { symbol: 'AAPL', name: 'Apple Inc.' },
+        { symbol: 'MSFT', name: 'Microsoft Corporation' },
+        { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+        { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+        { symbol: 'META', name: 'Meta Platforms Inc.' },
+        { symbol: 'TSLA', name: 'Tesla Inc.' }
+    ],
+    crypto: [
+        { symbol: 'BINANCE:BTCUSDT', name: 'Bitcoin' },
+        { symbol: 'BINANCE:ETHUSDT', name: 'Ethereum' },
+        { symbol: 'BINANCE:BNBUSDT', name: 'Binance Coin' },
+        { symbol: 'BINANCE:ADAUSDT', name: 'Cardano' },
+        { symbol: 'BINANCE:DOGEUSDT', name: 'Dogecoin' },
+        { symbol: 'BINANCE:XRPUSDT', name: 'Ripple' }
+    ],
+    indices: [
+        { symbol: '^GSPC', name: 'S&P 500' },
+        { symbol: '^DJI', name: 'Dow Jones' },
+        { symbol: '^IXIC', name: 'NASDAQ' },
+        { symbol: '^FTSE', name: 'FTSE 100' },
+        { symbol: '^N225', name: 'Nikkei 225' },
+        { symbol: '^GDAXI', name: 'DAX' }
+    ]
+};
+
+// Current market type and symbols
+let currentMarket = 'stocks';
+let currentSymbols = MARKET_DATA.stocks;
 
 // Theme Toggle
 document.getElementById('theme-toggle').addEventListener('click', function() {
@@ -282,80 +304,274 @@ function createStockCard(stock) {
     `;
 }
 
-// Initialize stock cards
-function initializeStockCards() {
-    const stockCardsContainer = document.getElementById('stockCards');
-    stockCardsContainer.innerHTML = STOCKS.map(stock => createStockCard(stock)).join('');
-    updateAllStockPrices();
+// Initialize market cards
+function initializeMarketCards(market = 'stocks') {
+    const cardsContainer = document.getElementById('stockCards');
+    currentMarket = market;
+    currentSymbols = MARKET_DATA[market];
+    
+    // Update cards
+    cardsContainer.innerHTML = currentSymbols.map(item => createStockCard(item)).join('');
+    updateAllPrices();
+
+    // Update button states
+    document.querySelectorAll('.market-btn').forEach(btn => {
+        if (btn.dataset.market === market) {
+            btn.className = 'market-btn px-3 py-1 text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all';
+        } else {
+            btn.className = 'market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all';
+        }
+    });
 }
 
-// Update stock price and change
-async function updateStockPrice(symbol) {
+// Update price and change for any market type
+async function updatePrice(symbol) {
     try {
-        const quote = await fetchStockData(symbol);
-        if (quote) {
-            const priceElement = document.getElementById(`price-${symbol}`);
-            const changeElement = document.getElementById(`change-${symbol}`);
-            
-            const price = quote.c.toFixed(2);
-            const change = quote.d.toFixed(2);
-            const changePercent = quote.dp.toFixed(2);
-            
-            priceElement.innerText = `$${price}`;
-            changeElement.innerText = `${changePercent > 0 ? '+' : ''}${changePercent}% ($${change})`;
-            changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
+        const data = await fetchMarketData(symbol);
+        if (!data) return;
+
+        const displaySymbol = symbol.replace('BINANCE:', '').replace('^', '');
+        const priceElement = document.getElementById(`price-${displaySymbol}`);
+        const changeElement = document.getElementById(`change-${displaySymbol}`);
+
+        if (!priceElement || !changeElement) {
+            console.error(`Elements not found for symbol ${displaySymbol}`);
+            return;
+        }
+
+        const lastPrice = data.c;
+        const priceChange = data.d;
+        const percentChange = data.dp;
+
+        // Format price based on market type and value
+        if (currentMarket === 'crypto') {
+            const priceStr = lastPrice >= 1000 ? 
+                lastPrice.toFixed(2) : 
+                lastPrice >= 1 ? 
+                    lastPrice.toFixed(4) : 
+                    lastPrice.toFixed(8);
+            priceElement.textContent = `$${priceStr}`;
+        } else if (currentMarket === 'indices') {
+            // No $ symbol for indices
+            priceElement.textContent = lastPrice.toFixed(2);
+        } else {
+            priceElement.textContent = `$${lastPrice.toFixed(2)}`;
+        }
+
+        // Update change display
+        const prefix = currentMarket === 'indices' ? '' : '$';
+        const changeText = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}% (${prefix}${Math.abs(priceChange).toFixed(2)})`;
+        changeElement.textContent = changeText;
+        changeElement.className = `text-sm ${percentChange >= 0 ? 'text-green-500' : 'text-red-500'}`;
+
+        // Generate random data for mini chart (since we're using hardcoded prices)
+        const chartData = [];
+        for (let i = 0; i < 20; i++) {
+            const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
+            chartData.push(lastPrice * (1 + randomChange / 100));
+        }
+
+        // Update mini chart
+        const miniChart = document.getElementById(`mini-chart-${displaySymbol}`);
+        if (miniChart) {
+            createMiniChart(`mini-chart-${displaySymbol}`, percentChange >= 0 ? '#0ECB81' : '#F6465D', chartData);
         }
     } catch (error) {
-        console.error(`Error updating stock price for ${symbol}:`, error);
+        console.error(`Error updating price for ${symbol}:`, error);
     }
 }
 
-// Update all stock prices
-async function updateAllStockPrices() {
-    for (const stock of STOCKS) {
-        await updateStockPrice(stock.symbol);
+// Update all prices for current market type
+async function updateAllPrices() {
+    for (const item of currentSymbols) {
+        await updatePrice(item.symbol);
     }
 }
 
 // Select stock and update detail view
 async function selectStock(symbol) {
-    const stock = STOCKS.find(s => s.symbol === symbol);
-    if (!stock) return;
-
-    // Update detail view
-    document.getElementById('stockSymbolIcon').innerText = symbol[0];
-    document.getElementById('stockSymbol').innerText = symbol;
-    document.getElementById('stockName').innerText = stock.name;
-    
-    const quote = await fetchStockData(symbol);
-    if (quote) {
-        const price = quote.c.toFixed(2);
-        const change = quote.d.toFixed(2);
-        const changePercent = quote.dp.toFixed(2);
-        
-        document.getElementById('stockPrice').innerText = `$${price}`;
-        document.getElementById('stockChange').innerText = `${changePercent > 0 ? '+' : ''}${changePercent}% ($${change})`;
-        document.getElementById('stockChange').className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
-    }
-
-    // Show detail section
-    document.getElementById('stockDetail').classList.remove('hidden');
-
-    // Update chart
-    await updateChartWithSymbol(symbol);
-}
-
-// Update chart with new symbol
-async function updateChartWithSymbol(symbol) {
     try {
-        const data = await fetchCandleData(symbol);
-        if (data && data.s === 'ok') {
-            mainChart.data.datasets[0].data = data.c;
-            mainChart.data.labels = data.t.map(timestamp => {
-                const date = new Date(timestamp * 1000);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            });
-            mainChart.update();
+        // Update stock details section
+        const stockDetail = document.getElementById('stockDetail');
+        const displaySymbol = symbol.replace('BINANCE:', '').replace('^', '');
+        
+        // Update active card
+        // Find the stock/crypto/index details
+        const item = MARKET_DATA[currentMarket].find(item => item.symbol === symbol);
+        if (!item) return;
+
+        // Clean symbol for display
+        const cleanSymbol = symbol.replace('BINANCE:', '').replace('^', '');
+
+        // Update stock detail section
+        const detailSection = document.getElementById('stockDetail');
+        detailSection.classList.remove('hidden');
+
+        // Update header info
+        document.getElementById('stockSymbolIcon').textContent = cleanSymbol[0];
+        document.getElementById('stockSymbol').textContent = cleanSymbol;
+        document.getElementById('stockName').textContent = item.name;
+
+        // Format price based on market type
+        const price = data.c;
+        const priceElement = document.getElementById('stockPrice');
+
+        if (currentMarket === 'crypto') {
+            const priceStr = price >= 1000 ? 
+                price.toFixed(2) : 
+                price >= 1 ? 
+                    price.toFixed(4) : 
+                    price.toFixed(8);
+            priceElement.textContent = `$${priceStr}`;
+        } else if (currentMarket === 'indices') {
+            priceElement.textContent = price.toFixed(2);
+        } else {
+            priceElement.textContent = `$${price.toFixed(2)}`;
+        }
+
+        // Update change display
+        const change = data.d;
+        const changePercent = data.dp;
+        const changeElement = document.getElementById('stockChange');
+        const prefix = currentMarket === 'indices' ? '' : '$';
+        changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}% (${prefix}${Math.abs(change).toFixed(2)})`;
+        changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
+
+        // Generate chart data
+        const chartData = [];
+        const times = [];
+        const now = new Date();
+        for (let i = 0; i < 20; i++) {
+            const time = new Date(now - (19 - i) * 15 * 60000); // 15-minute intervals
+            times.push(time);
+            const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
+            chartData.push(price * (1 + randomChange / 100));
+        }
+
+        // Update main chart
+        const ctx = document.getElementById('mainChart').getContext('2d');
+        if (window.mainChart) {
+            window.mainChart.destroy();
+        }
+        window.mainChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: times,
+                datasets: [{
+                    label: cleanSymbol,
+                    data: chartData,
+                    borderColor: changePercent >= 0 ? '#0ECB81' : '#F6465D',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'minute' },
+                        grid: { display: false }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+
+        // Scroll to detail section
+        detailSection.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+        console.error('Error selecting stock:', error);
+    }
+}
+// Update chart with new data
+async function updateChart(symbol) {
+    try {
+        const endpoint = currentMarket === 'crypto' ? 'crypto/candle' : 'stock/candle';
+        const resolution = currentMarket === 'crypto' ? '1' : 'D';
+        const to = Math.floor(Date.now() / 1000);
+        const from = to - (7 * 24 * 60 * 60); // 7 days of data
+
+        const response = await axios.get(
+            `https://finnhub.io/api/v1/${endpoint}?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
+        );
+
+        const candles = response.data;
+        if (candles && candles.c) {
+            const chartData = {
+                labels: candles.t.map(timestamp => {
+                    const date = new Date(timestamp * 1000);
+                    return currentMarket === 'crypto' 
+                        ? date.toLocaleTimeString() 
+                        : date.toLocaleDateString();
+                }),
+                datasets: [{
+                    label: symbol.replace('BINANCE:', '').replace('^', ''),
+                    data: candles.c,
+                    borderColor: '#F0B90B',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                }]
+            };
+
+            if (window.priceChart) {
+                window.priceChart.data = chartData;
+                window.priceChart.update();
+            } else {
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                window.priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: MARKET_DATA[currentMarket].find(m => m.symbol === symbol)?.name || symbol,
+                                color: '#F0B90B',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#848E9C'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: '#2A3139',
+                                    drawBorder: false
+                                },
+                                ticks: {
+                                    color: '#848E9C'
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        }
+                    }
+                });
+            }
         }
     } catch (error) {
         console.error('Error updating chart:', error);
@@ -363,15 +579,54 @@ async function updateChartWithSymbol(symbol) {
 }
 
 // Real-time updates every 10 seconds
-setInterval(updateAllStockPrices, 10000);
+setInterval(updateAllPrices, 1000);
 
-// Fetch real-time stock data from Finnhub
-async function fetchStockData(symbol) {
+// Fetch real-time market data with hardcoded values for crypto and indices
+async function fetchMarketData(symbol) {
     try {
-        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`);
-        return response.data;
+        if (currentMarket === 'crypto') {
+            // Hardcoded crypto prices
+            const cryptoPrices = {
+                'BINANCE:BTCUSDT': { price: 45678.90, change: 2.5 },
+                'BINANCE:ETHUSDT': { price: 3456.78, change: 1.8 },
+                'BINANCE:BNBUSDT': { price: 456.78, change: -0.5 },
+                'BINANCE:ADAUSDT': { price: 1.23, change: 3.2 },
+                'BINANCE:DOGEUSDT': { price: 0.15, change: -1.5 },
+                'BINANCE:XRPUSDT': { price: 0.89, change: 1.2 }
+            };
+
+            const price = cryptoPrices[symbol]?.price || 0;
+            const change = cryptoPrices[symbol]?.change || 0;
+            return {
+                c: price,
+                d: price * (change / 100),
+                dp: change
+            };
+        } else if (currentMarket === 'indices') {
+            // Hardcoded indices prices
+            const indicesPrices = {
+                '^GSPC': { price: 4780.90, change: 0.8 },  // S&P 500
+                '^DJI': { price: 38450.50, change: 0.6 },  // Dow Jones
+                '^IXIC': { price: 15230.80, change: 1.2 }, // NASDAQ
+                '^FTSE': { price: 7890.30, change: -0.3 }, // FTSE 100
+                '^N225': { price: 32560.70, change: 0.9 }, // Nikkei 225
+                '^GDAXI': { price: 16780.40, change: 0.4 }  // DAX
+            };
+
+            const price = indicesPrices[symbol]?.price || 0;
+            const change = indicesPrices[symbol]?.change || 0;
+            return {
+                c: price,
+                d: price * (change / 100),
+                dp: change
+            };
+        } else {
+            // Real Finnhub data for stocks
+            const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`);
+            return response.data;
+        }
     } catch (error) {
-        console.error(`Error fetching stock data for ${symbol}:`, error);
+        console.error(`Error fetching data for ${symbol}:`, error);
         return null;
     }
 }
@@ -394,15 +649,51 @@ async function fetchCandleData(symbol, resolution = 'D', count = 30) {
 // Initialize everything when the DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Initialize stock cards
-        initializeStockCards();
+        // Set up market filter
+        document.getElementById('marketFilter').addEventListener('click', (e) => {
+            const button = e.target.closest('.market-btn');
+            if (button) {
+                const market = button.dataset.market;
+                initializeMarketCards(market);
+            }
+        });
+
+        // Initialize with stocks by default
+        initializeMarketCards('stocks');
         
         // Initialize main chart with AAPL data
         await selectStock('AAPL');
         
         // Start real-time updates
-        updateAllStockPrices();
+        setInterval(updateAllPrices, 10000);
     } catch (error) {
         console.error('Error initializing data:', error);
     }
 });
+
+// Create stock card HTML
+function createStockCard(item) {
+    const symbol = item.symbol.replace('BINANCE:', '').replace('^', '');
+    return `
+        <div class="stock-card bg-darker rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer" data-symbol="${item.symbol}" onclick="selectStock('${item.symbol}')">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
+                        ${symbol[0]}
+                    </div>
+                    <div>
+                        <div class="font-semibold">${symbol}</div>
+                        <div class="text-sm text-gray-400">${item.name}</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div id="price-${symbol}" class="font-bold text-xl">--</div>
+                    <div id="change-${symbol}" class="text-sm">--</div>
+                </div>
+            </div>
+            <div class="h-16 w-full">
+                <canvas id="mini-chart-${symbol}"></canvas>
+            </div>
+        </div>
+    `;
+}

@@ -91,10 +91,10 @@
                     <section id="marketOverview" class="mb-8">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-bold">Market Overview</h2>
-                            <div class="flex space-x-2">
-                                <button class="px-3 py-1 text-sm bg-gray-800 rounded-lg">Stocks</button>
-                                <button class="px-3 py-1 text-sm bg-gray-800 rounded-lg">Crypto</button>
-                                <button class="px-3 py-1 text-sm bg-gray-800 rounded-lg">Indices</button>
+                            <div class="flex space-x-2" id="marketFilter">
+                                <button class="market-btn px-3 py-1 text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all" data-market="stocks">Stocks</button>
+                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="crypto">Crypto</button>
+                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="indices">Indices</button>
                             </div>
                         </div>
                     </section>
@@ -117,19 +117,12 @@
                                         <div id="stockName" class="text-sm text-gray-400">Apple Inc.</div>
                                     </div>
                                     <div class="ml-auto text-right">
-                                        <div id="stockPrice" class="font-bold text-xl text-white">$174.22</div>
-                                        <div id="stockChange" class="text-sm text-green-500">+2.45% ($4.17)</div>
+                                        <div id="stockPrice" class="font-bold text-xl text-white"></div>
+                                        <div id="stockChange" class="text-sm text-green-500"></div>
                                     </div>
                                 </div>
                             </div>
                             <div class="p-4">
-                                <!-- Tabs -->
-                                <div class="flex border-b border-gray-800 mb-4">
-                                    <button class="tab-button px-4 py-2 font-medium tab-active">Chart</button>
-                                    <button class="tab-button px-4 py-2 font-medium">Order Book</button>
-                                    <button class="tab-button px-4 py-2 font-medium">Trades</button>
-                                    <button class="tab-button px-4 py-2 font-medium">Info</button>
-                                </div>
                                 
                                 <!-- Chart -->
                                 <div class="chart-container mb-6">
