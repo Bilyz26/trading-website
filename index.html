@@ -28,7 +28,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                     </button>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 header-balance">
                         <div class="text-sm text-gray-400">Balance:</div>
                         <div id="balance" class="font-bold text-accent">$100,000.00</div>
                     </div>
@@ -91,10 +91,10 @@
                     <section id="marketOverview" class="mb-8">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-xl font-bold">Market Overview</h2>
-                            <div class="flex space-x-2" id="marketFilter">
+                            <div class="flex space-x-2 market-filter md:flex md:space-x-2 lg:flex lg:space-x-2" id="marketFilter">
                                 <button class="market-btn px-3 py-1 text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all" data-market="stocks">Stocks</button>
                                 <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="crypto">Crypto</button>
-                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="indices">Indices</button>
+                                <button class="market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all" data-market="forex">Forex</button>
                             </div>
                         </div>
                     </section>
@@ -130,7 +130,7 @@
                                 </div>
                                 
                                 <!-- Buy/Sell Panel -->
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="market-grid" id="stockGrid">
                                     <div class="bg-gray-800 rounded-lg p-4">
                                         <div class="flex justify-between items-center mb-4">
                                             <h3 class="font-bold">Buy AAPL</h3>
