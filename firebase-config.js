@@ -4,13 +4,14 @@
  */
 
 const FIREBASE_PROJECT_CONFIG = {
-    apiKey: "AIzaSyB-TradeSimProFirebaseKey2026",
-    authDomain: "tradesim-pro.firebaseapp.com",
-    databaseURL: "https://tradesim-pro-default-rtdb.firebaseio.com",
-    projectId: "tradesim-pro",
-    storageBucket: "tradesim-pro.appspot.com",
-    messagingSenderId: "982347102938",
-    appId: "1:982347102938:web:839217039120"
+    apiKey: "AIzaSyBoVrIQFCPyM3yH2jmMlsYcrHTIfMpZYd0",
+    authDomain: "tradingwebsite-ad609.firebaseapp.com",
+    databaseURL: "https://tradingwebsite-ad609-default-rtdb.firebaseio.com",
+    projectId: "tradingwebsite-ad609",
+    storageBucket: "tradingwebsite-ad609.firebasestorage.app",
+    messagingSenderId: "711097533339",
+    appId: "1:711097533339:web:f8c916b0c03705e745973e",
+    measurementId: "G-408WEPLDVS"
 };
 
 const FirebaseService = {
@@ -26,7 +27,7 @@ const FirebaseService = {
                 this.app = firebase.initializeApp(FIREBASE_PROJECT_CONFIG);
                 this.db = firebase.database();
                 this.isInitialized = true;
-                console.log('🔥 Firebase Realtime Database Service Initialized Successfully.');
+                console.log('🔥 Firebase Realtime Database Service Initialized Successfully with Live Project: tradingwebsite-ad609.');
             } catch (e) {
                 console.warn('Firebase initialization notice:', e.message);
             }
@@ -82,8 +83,8 @@ const FirebaseService = {
 
         // REST API Broadcast Fallback
         if (window.axios) {
-            await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`, clientRecord).catch(() => {});
-            await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`, JSON.stringify(clientId)).catch(() => {});
+            await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/clients/${clientId}.json`, clientRecord).catch(() => {});
+            await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/emails/${emailKey}.json`, JSON.stringify(clientId)).catch(() => {});
         }
 
         return clientRecord;
@@ -96,10 +97,10 @@ const FirebaseService = {
 
         if (window.axios) {
             try {
-                const res = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`);
+                const res = await axios.get(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/emails/${emailKey}.json`);
                 if (res.data) {
                     const clientId = typeof res.data === 'string' ? res.data.replace(/"/g, '') : res.data;
-                    const profileRes = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`);
+                    const profileRes = await axios.get(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/clients/${clientId}.json`);
                     if (profileRes.data) return profileRes.data;
                 }
             } catch (e) {
@@ -120,7 +121,7 @@ const FirebaseService = {
         }
 
         if (window.axios) {
-            await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/wallets/${clientId}.json`, walletData).catch(() => {});
+            await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/wallets/${clientId}.json`, walletData).catch(() => {});
         }
     },
 
@@ -135,7 +136,7 @@ const FirebaseService = {
         }
 
         if (window.axios) {
-            await axios.post(`https://tradesim-pro-default-rtdb.firebaseio.com/transactions/${clientId}.json`, tradeRecord).catch(() => {});
+            await axios.post(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/transactions/${clientId}.json`, tradeRecord).catch(() => {});
         }
     }
 };
