@@ -784,12 +784,20 @@ function openAuthModal(tab = 'SIGN_IN') {
         tabSignIn.className = 'flex-1 py-2 rounded-lg text-gray-400 hover:text-white transition-all';
     }
 
-    if (modal) modal.classList.remove('hidden');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.display = 'flex';
+    }
 }
 
 function closeAuthModal() {
     const modal = document.getElementById('authModal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.style.display = 'none';
+    }
 }
 
 function openProfileModal() {
@@ -838,11 +846,17 @@ function openProfileModal() {
     document.getElementById('modalProfileTradesCount').textContent = `${WalletStore.data.tradeHistory.length} Trades`;
 
     modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    modal.style.display = 'flex';
 }
 
 function closeProfileModal() {
     const modal = document.getElementById('profileModal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.style.display = 'none';
+    }
 }
 
 // -------------------------------------------------------------
