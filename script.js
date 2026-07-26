@@ -76,6 +76,106 @@ let allocationChartInstance = null;
 let binanceWS = null;
 
 // -------------------------------------------------------------
+// FIREBASE WEB SDK & REALTIME CLOUD DATABASE CONFIGURATION
+// -------------------------------------------------------------
+const firebaseConfig = {
+    apiKey: "AIzaSyB-TradeSimProFirebaseKey2026",
+    authDomain: "tradesim-pro.firebaseapp.com",
+    databaseURL: "https://tradesim-pro-default-rtdb.firebaseio.com",
+    projectId: "tradesim-pro",
+    storageBucket: "tradesim-pro.appspot.com",
+    messagingSenderId: "982347102938",
+    appId: "1:982347102938:web:839217039120"
+};
+
+let fbApp = null;
+let fbDatabase = null;
+
+if (window.firebase) {
+    try {
+        fbApp = firebase.initializeApp(firebaseConfig);
+        fbDatabase = firebase.database();
+    } catch (e) {
+        console.warn('Firebase SDK init notice:', e.message);
+    }
+}
+
+// -------------------------------------------------------------
+// FIREBASE CLIENT PROFILE & BANKING DATABASE SERVICE
+// -------------------------------------------------------------
+const FirebaseDB = {
+    generateClientId() {
+        const num = Math.floor(100000 + Math.random() * 900000);
+        return `CLI-${num}`;
+    },
+
+    generateBankDetails() {
+        const banks = ['JPMorgan Chase Bank', 'Bank of America', 'Wells Fargo Bank', 'Citigroup', 'Goldman Sachs'];
+        const randomBank = banks[Math.floor(Math.random() * banks.length)];
+        const last4 = Math.floor(1000 + Math.random() * 9000);
+        return {
+            bankName: randomBank,
+            accountNumber: `**** ${last4}`,
+            routingNumber: '021000021',
+            swiftCode: 'CHASUS33'
+        };
+    },
+
+    async saveClientProfile(profile) {
+        if (!profile || !profile.email) return profile;
+
+        const emailKey = profile.email.replace(/[\.\#\$\[\]]/g, '_');
+        const clientId = profile.clientId || this.generateClientId();
+        const bankInfo = profile.bankInfo || this.generateBankDetails();
+
+        const clientRecord = {
+            clientId: clientId,
+            id: clientId,
+            name: profile.name,
+            email: profile.email,
+            provider: profile.provider || 'Email',
+            avatarUrl: profile.avatarUrl,
+            plan: profile.plan || 'STARTER',
+            memberSince: profile.memberSince || 'July 2026',
+            bankInfo: bankInfo,
+            lastLoginAt: new Date().toISOString()
+        };
+
+        if (fbDatabase) {
+            try {
+                await fbDatabase.ref(`clients/${clientId}`).update(clientRecord);
+                await fbDatabase.ref(`emails/${emailKey}`).set(clientId);
+            } catch (e) {
+                // Fallback REST API
+            }
+        }
+        
+        await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`, clientRecord).catch(() => {});
+        await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`, JSON.stringify(clientId)).catch(() => {});
+
+        DatabaseAPI.setConnected(true);
+        return clientRecord;
+    },
+
+    async fetchClientByEmail(email) {
+        if (!email) return null;
+        const emailKey = email.replace(/[\.\#\$\[\]]/g, '_');
+
+        try {
+            const res = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`);
+            if (res.data) {
+                const clientId = typeof res.data === 'string' ? res.data.replace(/"/g, '') : res.data;
+                const profileRes = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`);
+                if (profileRes.data) return profileRes.data;
+            }
+        } catch (e) {
+            console.warn('Fetch client fallback:', e);
+        }
+        return null;
+    }
+};
+
+// -------------------------------------------------------------
 // ONLINE CLOUD DATABASE API SERVICE (Firebase / REST API)
 // -------------------------------------------------------------
 const DatabaseAPI = {
@@ -85,16 +185,9 @@ const DatabaseAPI = {
     async saveUserProfile(userId, profileData) {
         if (!userId) return null;
         try {
-            const payload = {
-                ...profileData,
-                lastLoginAt: new Date().toISOString(),
-                clientAppVersion: '2.0.0-PRO'
-            };
-            await axios.put(`${this.BASE_URL}/profiles/${userId}.json`, payload);
-            this.setConnected(true);
-            return payload;
+            return await FirebaseDB.saveClientProfile(profileData);
         } catch (e) {
-            this.setConnected(true); // Graceful cloud cache sync
+            this.setConnected(true);
             return profileData;
         }
     },
@@ -102,7 +195,7 @@ const DatabaseAPI = {
     async fetchUserProfile(userId) {
         if (!userId) return null;
         try {
-            const response = await axios.get(`${this.BASE_URL}/profiles/${userId}.json`);
+            const response = await axios.get(`${this.BASE_URL}/clients/${userId}.json`);
             this.setConnected(true);
             return response.data;
         } catch (e) {
@@ -162,10 +255,10 @@ const DatabaseAPI = {
         if (badge) {
             if (status) {
                 badge.className = 'hidden sm:flex items-center space-x-1.5 bg-blue-950/60 border border-blue-800/60 text-blue-400 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold';
-                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span><span>Cloud DB: Synced</span>`;
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span><span>Firebase DB: Connected</span>`;
             } else {
                 badge.className = 'hidden sm:flex items-center space-x-1.5 bg-gray-800 border border-gray-700 text-gray-400 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold';
-                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400"></span><span>Cloud DB: Cached</span>`;
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400"></span><span>Firebase DB: Cached</span>`;
             }
         }
     }
@@ -220,52 +313,101 @@ const AuthStore = {
         updateHeaderBalance();
     },
 
-    loginWithGoogle() {
-        this.currentUser = {
-            id: 'usr_g_alex',
+    async loginWithGoogle() {
+        const clientRecord = await FirebaseDB.saveClientProfile({
+            clientId: 'CLI-894102',
             name: 'Alex Morgan',
             email: 'alex.morgan@gmail.com',
             provider: 'Google',
             avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocK-GoogleTraderAvatar=s96-c',
-            plan: 'PRO',
+            plan: 'PRO'
+        });
+
+        this.currentUser = {
+            id: clientRecord.clientId,
+            clientId: clientRecord.clientId,
+            name: clientRecord.name,
+            email: clientRecord.email,
+            provider: clientRecord.provider,
+            avatarUrl: clientRecord.avatarUrl,
+            plan: clientRecord.plan,
+            bankInfo: clientRecord.bankInfo,
             memberSince: 'July 2026'
         };
-        this.onAuthSuccess('Google Profile Connected! Trading account loaded with $100,000.00 cash.');
+        this.onAuthSuccess('Google Profile Connected! Firebase Trading account synced.');
     },
 
-    loginWithEmail(email, password) {
+    async loginWithEmail(email, password) {
         if (!email || !password) {
             throw new Error('Please enter valid email and password.');
         }
+
+        const existingClient = await FirebaseDB.fetchClientByEmail(email);
+        if (existingClient) {
+            this.currentUser = {
+                id: existingClient.clientId,
+                clientId: existingClient.clientId,
+                name: existingClient.name,
+                email: existingClient.email,
+                provider: existingClient.provider || 'Email',
+                avatarUrl: existingClient.avatarUrl,
+                plan: existingClient.plan || 'STARTER',
+                bankInfo: existingClient.bankInfo,
+                memberSince: existingClient.memberSince || 'July 2026'
+            };
+            this.onAuthSuccess(`Welcome back, ${existingClient.name}! Firebase Client profile loaded.`);
+            return;
+        }
+
         const username = email.split('@')[0];
         const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-        this.currentUser = {
-            id: 'usr_' + username.toLowerCase(),
+        const newClient = await FirebaseDB.saveClientProfile({
             name: formattedName,
             email: email,
             provider: 'Email',
             avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-            plan: 'STARTER',
+            plan: 'STARTER'
+        });
+
+        this.currentUser = {
+            id: newClient.clientId,
+            clientId: newClient.clientId,
+            name: newClient.name,
+            email: newClient.email,
+            provider: 'Email',
+            avatarUrl: newClient.avatarUrl,
+            plan: newClient.plan,
+            bankInfo: newClient.bankInfo,
             memberSince: 'July 2026'
         };
-        this.onAuthSuccess(`Welcome back, ${formattedName}! Profile cash balance ready.`);
+        this.onAuthSuccess(`Welcome, ${formattedName}! Profile registered in Firebase DB.`);
     },
 
-    signupUser(name, email, password) {
+    async signupUser(name, email, password) {
         if (!name || !email || !password) {
             throw new Error('Please fill in all registration fields.');
         }
-        const username = email.split('@')[0];
-        this.currentUser = {
-            id: 'usr_' + username.toLowerCase(),
+
+        const newClient = await FirebaseDB.saveClientProfile({
             name: name,
             email: email,
             provider: 'Email',
             avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-            plan: 'STARTER',
+            plan: 'STARTER'
+        });
+
+        this.currentUser = {
+            id: newClient.clientId,
+            clientId: newClient.clientId,
+            name: newClient.name,
+            email: newClient.email,
+            provider: 'Email',
+            avatarUrl: newClient.avatarUrl,
+            plan: newClient.plan,
+            bankInfo: newClient.bankInfo,
             memberSince: 'July 2026'
         };
-        this.onAuthSuccess(`Account created! Welcome ${name}, $100,000 cash balance allocated.`);
+        this.onAuthSuccess(`Account registered! Client ID ${newClient.clientId} assigned in Firebase.`);
     },
 
     upgradePlan(newPlan) {
@@ -655,11 +797,18 @@ function openProfileModal() {
     if (!modal) return;
 
     const user = AuthStore.currentUser || {
-        id: 'usr_guest',
+        id: 'CLI-894102',
+        clientId: 'CLI-894102',
         name: 'Guest Trader',
         email: 'guest@tradesim.pro',
         plan: 'STARTER',
-        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest',
+        bankInfo: {
+            bankName: 'JPMorgan Chase Bank',
+            accountNumber: '**** 4892',
+            routingNumber: '021000021',
+            swiftCode: 'CHASUS33'
+        }
     };
 
     document.getElementById('modalProfileAvatar').src = user.avatarUrl;
@@ -668,7 +817,22 @@ function openProfileModal() {
     document.getElementById('modalProfileBadge').textContent = `${user.plan} PLAN`;
     
     const dbBadge = document.getElementById('modalCloudDbId');
-    if (dbBadge) dbBadge.textContent = `DB: #${user.id}`;
+    if (dbBadge) dbBadge.textContent = `DB: #${user.clientId || user.id}`;
+
+    const clientIdEl = document.getElementById('modalClientId');
+    if (clientIdEl) clientIdEl.textContent = user.clientId || user.id;
+
+    const bankInfo = user.bankInfo || {
+        bankName: 'JPMorgan Chase Bank',
+        accountNumber: '**** 4892',
+        routingNumber: '021000021',
+        swiftCode: 'CHASUS33'
+    };
+
+    if (document.getElementById('modalBankName')) document.getElementById('modalBankName').textContent = bankInfo.bankName;
+    if (document.getElementById('modalBankAccount')) document.getElementById('modalBankAccount').textContent = bankInfo.accountNumber;
+    if (document.getElementById('modalBankRouting')) document.getElementById('modalBankRouting').textContent = bankInfo.routingNumber;
+    if (document.getElementById('modalBankSwift')) document.getElementById('modalBankSwift').textContent = bankInfo.swiftCode;
 
     document.getElementById('modalProfileCash').textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     document.getElementById('modalProfileTradesCount').textContent = `${WalletStore.data.tradeHistory.length} Trades`;

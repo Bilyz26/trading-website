@@ -9,6 +9,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Firebase Web SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -805,14 +808,45 @@
             </div>
 
             <!-- Profile Account Stats -->
-            <div class="grid grid-cols-2 gap-3 bg-gray-900/80 p-4 rounded-xl border border-gray-800 mb-6 text-center">
+            <div class="grid grid-cols-2 gap-3 bg-gray-900/80 p-3.5 rounded-xl border border-gray-800 mb-4 text-center">
                 <div>
                     <div class="text-[10px] text-gray-400 uppercase font-semibold">Virtual Cash</div>
                     <div id="modalProfileCash" class="font-bold text-accent text-sm">$100,000.00</div>
                 </div>
                 <div>
                     <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Trades</div>
-                    <div id="modalProfileTradesCount" class="font-bold text-white text-sm">24 Trades</div>
+                    <div id="modalProfileTradesCount" class="font-bold text-white text-sm">0 Trades</div>
+                </div>
+            </div>
+
+            <!-- Client Banking Info Card (Firebase DB Synced) -->
+            <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-3.5 mb-6">
+                <div class="flex justify-between items-center mb-2 pb-1 border-b border-gray-800">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center">
+                        <svg class="w-3.5 h-3.5 text-accent mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Virtual Banking & Client Record
+                    </span>
+                    <span id="modalClientId" class="text-[11px] font-mono text-accent font-bold">CLI-894102</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <div class="text-[9px] text-gray-500 uppercase">Bank Name</div>
+                        <div id="modalBankName" class="font-medium text-gray-200">JPMorgan Chase Bank</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] text-gray-500 uppercase">Account Number</div>
+                        <div id="modalBankAccount" class="font-mono text-gray-200">**** 4892</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] text-gray-500 uppercase">Routing / ABA</div>
+                        <div id="modalBankRouting" class="font-mono text-gray-400">021000021</div>
+                    </div>
+                    <div>
+                        <div class="text-[9px] text-gray-500 uppercase">SWIFT / BIC</div>
+                        <div id="modalBankSwift" class="font-mono text-gray-400">CHASUS33</div>
+                    </div>
                 </div>
             </div>
 
