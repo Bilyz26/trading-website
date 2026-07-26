@@ -79,7 +79,7 @@ let binanceWS = null;
 // USER AUTHENTICATION & PROFILE STORE
 // -------------------------------------------------------------
 const AuthStore = {
-    STORAGE_KEY: 'tradesim_user_session_v2',
+    STORAGE_KEY: 'tradesim_user_session_v3',
 
     currentUser: null,
 
@@ -104,9 +104,28 @@ const AuthStore = {
         this.updateAuthUI();
     },
 
+    onAuthSuccess(welcomeMessage) {
+        this.save();
+        WalletStore.init();
+        showToast(welcomeMessage, 'success');
+        AudioFX.playBuy();
+        closeAuthModal();
+
+        // Smooth scroll straight into Trading Terminal Workspace
+        setTimeout(() => {
+            const terminalSection = document.getElementById('marketOverview');
+            if (terminalSection) {
+                terminalSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        }, 150);
+
+        renderPortfolioTable();
+        updateHeaderBalance();
+    },
+
     loginWithGoogle() {
         this.currentUser = {
-            id: 'usr_g_' + Date.now(),
+            id: 'usr_g_alex',
             name: 'Alex Morgan',
             email: 'alex.morgan@gmail.com',
             provider: 'Google',
@@ -114,10 +133,7 @@ const AuthStore = {
             plan: 'PRO',
             memberSince: 'July 2026'
         };
-        this.save();
-        showToast('Successfully signed in with Google!', 'success');
-        AudioFX.playBuy();
-        closeAuthModal();
+        this.onAuthSuccess('Google Profile Connected! Trading account loaded with $100,000.00 cash.');
     },
 
     loginWithEmail(email, password) {
@@ -127,7 +143,7 @@ const AuthStore = {
         const username = email.split('@')[0];
         const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
         this.currentUser = {
-            id: 'usr_e_' + Date.now(),
+            id: 'usr_' + username.toLowerCase(),
             name: formattedName,
             email: email,
             provider: 'Email',
@@ -135,18 +151,16 @@ const AuthStore = {
             plan: 'STARTER',
             memberSince: 'July 2026'
         };
-        this.save();
-        showToast(`Welcome back, ${formattedName}!`, 'success');
-        AudioFX.playBuy();
-        closeAuthModal();
+        this.onAuthSuccess(`Welcome back, ${formattedName}! Profile cash balance ready.`);
     },
 
     signupUser(name, email, password) {
         if (!name || !email || !password) {
             throw new Error('Please fill in all registration fields.');
         }
+        const username = email.split('@')[0];
         this.currentUser = {
-            id: 'usr_e_' + Date.now(),
+            id: 'usr_' + username.toLowerCase(),
             name: name,
             email: email,
             provider: 'Email',
@@ -154,10 +168,7 @@ const AuthStore = {
             plan: 'STARTER',
             memberSince: 'July 2026'
         };
-        this.save();
-        showToast(`Account created successfully! Welcome ${name}`, 'success');
-        AudioFX.playBuy();
-        closeAuthModal();
+        this.onAuthSuccess(`Account created! Welcome ${name}, $100,000 cash balance allocated.`);
     },
 
     upgradePlan(newPlan) {
@@ -173,8 +184,11 @@ const AuthStore = {
     logout() {
         this.currentUser = null;
         this.save();
-        showToast('Signed out of account.', 'info');
+        WalletStore.init();
+        showToast('Signed out. Cash balance hidden.', 'info');
         closeProfileModal();
+        renderPortfolioTable();
+        updateHeaderBalance();
     },
 
     updateAuthUI() {
@@ -252,10 +266,15 @@ const AudioFX = {
 };
 
 // -------------------------------------------------------------
-// WALLET & RISK ENGINE
+// WALLET & RISK ENGINE (User Profile Linked)
 // -------------------------------------------------------------
 const WalletStore = {
-    STORAGE_KEY: 'tradesim_wallet_v8_pro',
+    getKey() {
+        if (AuthStore.currentUser && AuthStore.currentUser.id) {
+            return `tradesim_wallet_user_${AuthStore.currentUser.id}`;
+        }
+        return 'tradesim_wallet_guest';
+    },
 
     data: {
         cashBalance: 100000.00,
@@ -287,7 +306,8 @@ const WalletStore = {
     },
 
     init() {
-        const saved = localStorage.getItem(this.STORAGE_KEY);
+        const key = this.getKey();
+        const saved = localStorage.getItem(key);
         if (saved) {
             try {
                 this.data = JSON.parse(saved);
@@ -295,12 +315,23 @@ const WalletStore = {
             } catch (e) {
                 console.error('Failed to parse saved wallet:', e);
             }
+        } else {
+            // Default fresh wallet per user profile
+            this.data = {
+                cashBalance: 100000.00,
+                positions: {
+                    AAPL: { quantity: 10, avgCost: 170.00, stopLoss: 160.00, takeProfit: 190.00 },
+                    'BINANCE:BTCUSDT': { quantity: 0.25, avgCost: 61000.00, stopLoss: 58000.00, takeProfit: 70000.00 }
+                },
+                pendingOrders: [],
+                tradeHistory: []
+            };
         }
         this.save();
     },
 
     save() {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+        localStorage.setItem(this.getKey(), JSON.stringify(this.data));
     },
 
     resetWallet() {
@@ -314,6 +345,7 @@ const WalletStore = {
     },
 
     getCash() {
+        if (!AuthStore.currentUser) return 0;
         return this.data.cashBalance;
     },
 
@@ -322,6 +354,11 @@ const WalletStore = {
     },
 
     executeTrade(type, symbol, quantity, price, stopLoss = null, takeProfit = null) {
+        if (!AuthStore.currentUser) {
+            openAuthModal('SIGN_IN');
+            throw new Error('Please sign in or create an account to trade with virtual cash!');
+        }
+
         const totalCost = quantity * price;
 
         if (type === 'BUY') {
@@ -1235,8 +1272,15 @@ async function updateAllPrices() {
 
 function updateHeaderBalance() {
     const cashEl = document.getElementById('headerBalance');
-    if (cashEl) {
+    if (!cashEl) return;
+
+    if (AuthStore.currentUser) {
         cashEl.textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        cashEl.className = 'text-xs sm:text-sm font-bold text-accent';
+    } else {
+        cashEl.textContent = 'Sign In to Trade';
+        cashEl.className = 'text-xs font-semibold text-yellow-400 cursor-pointer hover:underline';
+        cashEl.onclick = () => openAuthModal('SIGN_IN');
     }
 }
 
