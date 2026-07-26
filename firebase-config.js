@@ -180,7 +180,7 @@ const FirebaseService = {
         // REST API Broadcast Fallback
         if (window.axios) {
             await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/clients/${clientId}.json`, clientRecord).catch(() => {});
-            await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/emails/${emailKey}.json`, JSON.stringify(clientId)).catch(() => {});
+            await axios.put(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/emails/${emailKey}.json`, `"${clientId}"`).catch(() => {});
         }
 
         return clientRecord;
@@ -190,6 +190,17 @@ const FirebaseService = {
         this.init();
         if (!email) return null;
         const emailKey = email.replace(/[\.\#\$\[\]]/g, '_');
+
+        if (this.db) {
+            try {
+                const snapshot = await this.db.ref(`emails/${emailKey}`).once('value');
+                if (snapshot.exists()) {
+                    const clientId = snapshot.val();
+                    const profileSnap = await this.db.ref(`clients/${clientId}`).once('value');
+                    if (profileSnap.exists()) return profileSnap.val();
+                }
+            } catch (e) {}
+        }
 
         if (window.axios) {
             try {
