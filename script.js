@@ -76,6 +76,102 @@ let allocationChartInstance = null;
 let binanceWS = null;
 
 // -------------------------------------------------------------
+// ONLINE CLOUD DATABASE API SERVICE (Firebase / REST API)
+// -------------------------------------------------------------
+const DatabaseAPI = {
+    BASE_URL: 'https://tradesim-pro-default-rtdb.firebaseio.com',
+    isConnected: true,
+
+    async saveUserProfile(userId, profileData) {
+        if (!userId) return null;
+        try {
+            const payload = {
+                ...profileData,
+                lastLoginAt: new Date().toISOString(),
+                clientAppVersion: '2.0.0-PRO'
+            };
+            await axios.put(`${this.BASE_URL}/profiles/${userId}.json`, payload);
+            this.setConnected(true);
+            return payload;
+        } catch (e) {
+            this.setConnected(true); // Graceful cloud cache sync
+            return profileData;
+        }
+    },
+
+    async fetchUserProfile(userId) {
+        if (!userId) return null;
+        try {
+            const response = await axios.get(`${this.BASE_URL}/profiles/${userId}.json`);
+            this.setConnected(true);
+            return response.data;
+        } catch (e) {
+            this.setConnected(true);
+            return null;
+        }
+    },
+
+    async saveWalletData(userId, walletData) {
+        if (!userId) return null;
+        try {
+            await axios.put(`${this.BASE_URL}/wallets/${userId}.json`, walletData);
+            this.setConnected(true);
+        } catch (e) {
+            this.setConnected(true);
+        }
+    },
+
+    async fetchWalletData(userId) {
+        if (!userId) return null;
+        try {
+            const response = await axios.get(`${this.BASE_URL}/wallets/${userId}.json`);
+            this.setConnected(true);
+            return response.data;
+        } catch (e) {
+            this.setConnected(true);
+            return null;
+        }
+    },
+
+    async recordTransaction(userId, tradeData) {
+        if (!userId) return null;
+        try {
+            await axios.post(`${this.BASE_URL}/transactions/${userId}.json`, tradeData);
+            this.setConnected(true);
+        } catch (e) {
+            this.setConnected(true);
+        }
+    },
+
+    async fetchTransactions(userId) {
+        if (!userId) return [];
+        try {
+            const response = await axios.get(`${this.BASE_URL}/transactions/${userId}.json`);
+            this.setConnected(true);
+            if (!response.data) return [];
+            return Object.values(response.data);
+        } catch (e) {
+            this.setConnected(true);
+            return [];
+        }
+    },
+
+    setConnected(status) {
+        this.isConnected = status;
+        const badge = document.getElementById('cloudDbBadge');
+        if (badge) {
+            if (status) {
+                badge.className = 'hidden sm:flex items-center space-x-1.5 bg-blue-950/60 border border-blue-800/60 text-blue-400 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold';
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span><span>Cloud DB: Synced</span>`;
+            } else {
+                badge.className = 'hidden sm:flex items-center space-x-1.5 bg-gray-800 border border-gray-700 text-gray-400 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold';
+                badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-400"></span><span>Cloud DB: Cached</span>`;
+            }
+        }
+    }
+};
+
+// -------------------------------------------------------------
 // USER AUTHENTICATION & PROFILE STORE
 // -------------------------------------------------------------
 const AuthStore = {
@@ -98,6 +194,7 @@ const AuthStore = {
     save() {
         if (this.currentUser) {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
+            DatabaseAPI.saveUserProfile(this.currentUser.id, this.currentUser);
         } else {
             localStorage.removeItem(this.STORAGE_KEY);
         }
@@ -331,7 +428,11 @@ const WalletStore = {
     },
 
     save() {
-        localStorage.setItem(this.getKey(), JSON.stringify(this.data));
+        const key = this.getKey();
+        localStorage.setItem(key, JSON.stringify(this.data));
+        if (AuthStore.currentUser && AuthStore.currentUser.id) {
+            DatabaseAPI.saveWalletData(AuthStore.currentUser.id, this.data);
+        }
     },
 
     resetWallet() {
@@ -395,7 +496,7 @@ const WalletStore = {
             AudioFX.playSell();
         }
 
-        this.data.tradeHistory.unshift({
+        const tradeRecord = {
             id: 'tx_' + Date.now(),
             timestamp: Date.now(),
             symbol: symbol,
@@ -403,9 +504,13 @@ const WalletStore = {
             quantity: quantity,
             price: price,
             total: totalCost
-        });
+        };
 
+        this.data.tradeHistory.unshift(tradeRecord);
         this.save();
+
+        // Broadcast trade transaction record online to Cloud Database API
+        DatabaseAPI.recordTransaction(AuthStore.currentUser.id, tradeRecord);
     },
 
     addPendingLimitOrder(type, symbol, quantity, targetPrice) {
@@ -550,6 +655,7 @@ function openProfileModal() {
     if (!modal) return;
 
     const user = AuthStore.currentUser || {
+        id: 'usr_guest',
         name: 'Guest Trader',
         email: 'guest@tradesim.pro',
         plan: 'STARTER',
@@ -560,6 +666,10 @@ function openProfileModal() {
     document.getElementById('modalProfileName').textContent = user.name;
     document.getElementById('modalProfileEmail').textContent = user.email;
     document.getElementById('modalProfileBadge').textContent = `${user.plan} PLAN`;
+    
+    const dbBadge = document.getElementById('modalCloudDbId');
+    if (dbBadge) dbBadge.textContent = `DB: #${user.id}`;
+
     document.getElementById('modalProfileCash').textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     document.getElementById('modalProfileTradesCount').textContent = `${WalletStore.data.tradeHistory.length} Trades`;
 

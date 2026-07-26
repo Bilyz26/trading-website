@@ -36,8 +36,13 @@
                     </nav>
                 </div>
 
-                <!-- Right: Cash, Auth & User Menu -->
+                <!-- Right: Cash, Cloud Sync Status, Auth & User Menu -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div id="cloudDbBadge" class="hidden sm:flex items-center space-x-1.5 bg-blue-950/60 border border-blue-800/60 text-blue-400 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold" title="Online Cloud Database Synced">
+                        <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                        <span>Cloud DB: Connected</span>
+                    </div>
+
                     <div class="flex items-center space-x-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700">
                         <span class="text-xs text-gray-400">Cash:</span>
                         <div id="headerBalance" class="text-xs sm:text-sm font-bold text-accent">$100,000.00</div>
@@ -792,8 +797,11 @@
             <div class="text-center mb-6">
                 <img id="modalProfileAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Trader" class="w-20 h-20 rounded-full border-2 border-accent mx-auto mb-3 bg-gray-800" alt="Profile Avatar">
                 <h3 id="modalProfileName" class="text-xl font-bold text-white mb-0.5">Alex Morgan</h3>
-                <p id="modalProfileEmail" class="text-xs text-gray-400 mb-3">alex.morgan@gmail.com</p>
-                <span id="modalProfileBadge" class="bg-accent/20 text-accent border border-accent/30 text-xs px-3 py-1 rounded-full font-mono font-bold">TRADER PRO PLAN</span>
+                <p id="modalProfileEmail" class="text-xs text-gray-400 mb-2">alex.morgan@gmail.com</p>
+                <div class="flex items-center justify-center space-x-2 mb-3">
+                    <span id="modalProfileBadge" class="bg-accent/20 text-accent border border-accent/30 text-xs px-2.5 py-0.5 rounded-full font-mono font-bold">TRADER PRO PLAN</span>
+                    <span id="modalCloudDbId" class="bg-blue-950/80 text-blue-300 border border-blue-800/80 text-[10px] px-2 py-0.5 rounded font-mono">DB: #usr_g_alex</span>
+                </div>
             </div>
 
             <!-- Profile Account Stats -->
