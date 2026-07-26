@@ -222,27 +222,32 @@ const AuthStore = {
     },
 
     async loginWithGoogle() {
-        const clientRecord = await FirebaseDB.saveClientProfile({
-            clientId: 'CLI-894102',
-            name: 'Alex Morgan',
-            email: 'alex.morgan@gmail.com',
-            provider: 'Google',
-            avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocK-GoogleTraderAvatar=s96-c',
-            plan: 'PRO'
-        });
+        try {
+            const clientRecord = (typeof FirebaseService !== 'undefined' && FirebaseService.loginWithGooglePopup)
+                ? await FirebaseService.loginWithGooglePopup()
+                : await FirebaseDB.saveClientProfile({
+                    name: 'Alex Morgan',
+                    email: 'alex.morgan@gmail.com',
+                    provider: 'Google',
+                    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AlexMorganGoogle',
+                    plan: 'TRADER PRO'
+                });
 
-        this.currentUser = {
-            id: clientRecord.clientId,
-            clientId: clientRecord.clientId,
-            name: clientRecord.name,
-            email: clientRecord.email,
-            provider: clientRecord.provider,
-            avatarUrl: clientRecord.avatarUrl,
-            plan: clientRecord.plan,
-            bankInfo: clientRecord.bankInfo,
-            memberSince: 'July 2026'
-        };
-        this.onAuthSuccess('Google Profile Connected! Firebase Trading account synced.');
+            this.currentUser = {
+                id: clientRecord.clientId,
+                clientId: clientRecord.clientId,
+                name: clientRecord.name,
+                email: clientRecord.email,
+                provider: clientRecord.provider,
+                avatarUrl: clientRecord.avatarUrl,
+                plan: clientRecord.plan,
+                bankInfo: clientRecord.bankInfo,
+                memberSince: clientRecord.memberSince || 'July 2026'
+            };
+            this.onAuthSuccess(`Welcome ${this.currentUser.name}! Google profile connected & database synced.`);
+        } catch (err) {
+            showToast(`Google Sign-In Notice: ${err.message}`, 'error');
+        }
     },
 
     async loginWithEmail(email, password) {
