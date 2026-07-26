@@ -596,9 +596,11 @@ const WalletStore = {
         return this.data.positions[symbol] || { quantity: 0, avgCost: 0, stopLoss: null, takeProfit: null };
     },
 
-    executeTrade(type, symbol, quantity, price, stopLoss = null, takeProfit = null) {
+    executeTrade(type, symbol, quantity, price, stopLoss = null, takeProfit = null, isUserInitiated = false) {
         if (!AuthStore.currentUser) {
-            openAuthModal('SIGN_IN');
+            if (isUserInitiated) {
+                openAuthModal('SIGN_IN');
+            }
             throw new Error('Please sign in or create an account to trade with virtual cash!');
         }
 
@@ -1025,6 +1027,8 @@ async function fetchMarketData(symbol) {
 // STOP-LOSS (SL) & TAKE-PROFIT (TP) RISK ENGINE
 // -------------------------------------------------------------
 function checkStopLossTakeProfit() {
+    if (!AuthStore.currentUser) return;
+
     const positions = WalletStore.data.positions;
     if (!positions) return;
 
@@ -1037,7 +1041,7 @@ function checkStopLossTakeProfit() {
 
         if (pos.stopLoss && currentPrice <= pos.stopLoss) {
             try {
-                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice);
+                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice, null, null, false);
                 AudioFX.playAlert();
                 showToast(`🛑 STOP-LOSS TRIGGERED! Sold ${pos.quantity} ${cleanSymbolStr(symbol)} @ $${currentPrice.toFixed(2)}`, 'error');
                 renderPortfolioTable();
@@ -1049,7 +1053,7 @@ function checkStopLossTakeProfit() {
         }
         else if (pos.takeProfit && currentPrice >= pos.takeProfit) {
             try {
-                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice);
+                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice, null, null, false);
                 AudioFX.playAlert();
                 showToast(`🎯 TAKE-PROFIT TRIGGERED! Sold ${pos.quantity} ${cleanSymbolStr(symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
                 renderPortfolioTable();
@@ -1063,6 +1067,8 @@ function checkStopLossTakeProfit() {
 }
 
 function checkPendingLimitOrders() {
+    if (!AuthStore.currentUser) return;
+
     const orders = WalletStore.data.pendingOrders;
     if (!orders || orders.length === 0) return;
 
@@ -1079,7 +1085,7 @@ function checkPendingLimitOrders() {
 
         if (order.type === 'BUY' && currentPrice <= order.targetPrice) {
             try {
-                WalletStore.executeTrade('BUY', order.symbol, order.quantity, currentPrice);
+                WalletStore.executeTrade('BUY', order.symbol, order.quantity, currentPrice, null, null, false);
                 AudioFX.playAlert();
                 showToast(`🎯 LIMIT BUY EXECUTED! Bought ${order.quantity} ${cleanSymbolStr(order.symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
                 executed = true;
@@ -1088,7 +1094,7 @@ function checkPendingLimitOrders() {
             }
         } else if (order.type === 'SELL' && currentPrice >= order.targetPrice) {
             try {
-                WalletStore.executeTrade('SELL', order.symbol, order.quantity, currentPrice);
+                WalletStore.executeTrade('SELL', order.symbol, order.quantity, currentPrice, null, null, false);
                 AudioFX.playAlert();
                 showToast(`🎯 LIMIT SELL EXECUTED! Sold ${order.quantity} ${cleanSymbolStr(order.symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
                 executed = true;
@@ -1784,7 +1790,7 @@ async function renderPortfolioTable() {
 
 function closePositionQuick(symbol, quantity, price) {
     try {
-        WalletStore.executeTrade('SELL', symbol, quantity, price);
+        WalletStore.executeTrade('SELL', symbol, quantity, price, null, null, true);
         showToast(`Closed full position of ${quantity} ${cleanSymbolStr(symbol)} @ $${price.toFixed(2)}`, 'success');
         if (selectedSymbol === symbol) selectStock(symbol);
         renderPortfolioTable();
@@ -1967,7 +1973,7 @@ function initializeTradeForms() {
 
         if (buyOrderMode === 'MARKET') {
             try {
-                WalletStore.executeTrade('BUY', selectedSymbol, qty, currentMarketPrice, stopLoss, takeProfit);
+                WalletStore.executeTrade('BUY', selectedSymbol, qty, currentMarketPrice, stopLoss, takeProfit, true);
                 showToast(`Bought ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${currentMarketPrice.toFixed(2)}`, 'success');
                 document.getElementById('buyAmountInput').value = '';
                 recalculateTradeTotals();
@@ -2008,7 +2014,7 @@ function initializeTradeForms() {
 
         if (sellOrderMode === 'MARKET') {
             try {
-                WalletStore.executeTrade('SELL', selectedSymbol, qty, currentMarketPrice);
+                WalletStore.executeTrade('SELL', selectedSymbol, qty, currentMarketPrice, null, null, true);
                 showToast(`Sold ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${currentMarketPrice.toFixed(2)}`, 'success');
                 document.getElementById('sellAmountInput').value = '';
                 recalculateTradeTotals();
@@ -2119,6 +2125,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('user-menu')?.addEventListener('click', openProfileModal);
     document.getElementById('closeProfileModalBtn')?.addEventListener('click', closeProfileModal);
     document.getElementById('signOutBtn')?.addEventListener('click', () => AuthStore.logout());
+
+    // Backdrop overlay click and Escape key listeners
+    const authModalEl = document.getElementById('authModal');
+    const profileModalEl = document.getElementById('profileModal');
+
+    if (authModalEl) {
+        authModalEl.addEventListener('click', (e) => {
+            if (e.target === authModalEl) closeAuthModal();
+        });
+    }
+    if (profileModalEl) {
+        profileModalEl.addEventListener('click', (e) => {
+            if (e.target === profileModalEl) closeProfileModal();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeAuthModal();
+            closeProfileModal();
+        }
+    });
 
     // 5. Timeframe Selector Listener
     document.getElementById('timeframeSelector')?.addEventListener('click', (e) => {
