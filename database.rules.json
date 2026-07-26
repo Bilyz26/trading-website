@@ -1,0 +1,24 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "clients": {
+      "$clientId": {
+        ".indexOn": ["email", "clientId"]
+      }
+    },
+    "emails": {
+      ".indexOn": ".value"
+    },
+    "wallets": {
+      "$clientId": {
+        ".indexOn": "cashBalance"
+      }
+    },
+    "transactions": {
+      "$clientId": {
+        ".indexOn": ["timestamp", "symbol", "type"]
+      }
+    }
+  }
+}

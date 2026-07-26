@@ -75,104 +75,12 @@ let allocationChartInstance = null;
 // Binance WebSocket Handle
 let binanceWS = null;
 
-// -------------------------------------------------------------
-// FIREBASE WEB SDK & REALTIME CLOUD DATABASE CONFIGURATION
-// -------------------------------------------------------------
-const firebaseConfig = {
-    apiKey: "AIzaSyB-TradeSimProFirebaseKey2026",
-    authDomain: "tradesim-pro.firebaseapp.com",
-    databaseURL: "https://tradesim-pro-default-rtdb.firebaseio.com",
-    projectId: "tradesim-pro",
-    storageBucket: "tradesim-pro.appspot.com",
-    messagingSenderId: "982347102938",
-    appId: "1:982347102938:web:839217039120"
-};
-
-let fbApp = null;
-let fbDatabase = null;
-
-if (window.firebase) {
-    try {
-        fbApp = firebase.initializeApp(firebaseConfig);
-        fbDatabase = firebase.database();
-    } catch (e) {
-        console.warn('Firebase SDK init notice:', e.message);
-    }
-}
-
-// -------------------------------------------------------------
-// FIREBASE CLIENT PROFILE & BANKING DATABASE SERVICE
-// -------------------------------------------------------------
-const FirebaseDB = {
-    generateClientId() {
-        const num = Math.floor(100000 + Math.random() * 900000);
-        return `CLI-${num}`;
-    },
-
-    generateBankDetails() {
-        const banks = ['JPMorgan Chase Bank', 'Bank of America', 'Wells Fargo Bank', 'Citigroup', 'Goldman Sachs'];
-        const randomBank = banks[Math.floor(Math.random() * banks.length)];
-        const last4 = Math.floor(1000 + Math.random() * 9000);
-        return {
-            bankName: randomBank,
-            accountNumber: `**** ${last4}`,
-            routingNumber: '021000021',
-            swiftCode: 'CHASUS33'
-        };
-    },
-
-    async saveClientProfile(profile) {
-        if (!profile || !profile.email) return profile;
-
-        const emailKey = profile.email.replace(/[\.\#\$\[\]]/g, '_');
-        const clientId = profile.clientId || this.generateClientId();
-        const bankInfo = profile.bankInfo || this.generateBankDetails();
-
-        const clientRecord = {
-            clientId: clientId,
-            id: clientId,
-            name: profile.name,
-            email: profile.email,
-            provider: profile.provider || 'Email',
-            avatarUrl: profile.avatarUrl,
-            plan: profile.plan || 'STARTER',
-            memberSince: profile.memberSince || 'July 2026',
-            bankInfo: bankInfo,
-            lastLoginAt: new Date().toISOString()
-        };
-
-        if (fbDatabase) {
-            try {
-                await fbDatabase.ref(`clients/${clientId}`).update(clientRecord);
-                await fbDatabase.ref(`emails/${emailKey}`).set(clientId);
-            } catch (e) {
-                // Fallback REST API
-            }
-        }
-        
-        await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`, clientRecord).catch(() => {});
-        await axios.put(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`, JSON.stringify(clientId)).catch(() => {});
-
-        DatabaseAPI.setConnected(true);
-        return clientRecord;
-    },
-
-    async fetchClientByEmail(email) {
-        if (!email) return null;
-        const emailKey = email.replace(/[\.\#\$\[\]]/g, '_');
-
-        try {
-            const res = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/emails/${emailKey}.json`);
-            if (res.data) {
-                const clientId = typeof res.data === 'string' ? res.data.replace(/"/g, '') : res.data;
-                const profileRes = await axios.get(`https://tradesim-pro-default-rtdb.firebaseio.com/clients/${clientId}.json`);
-                if (profileRes.data) return profileRes.data;
-            }
-        } catch (e) {
-            console.warn('Fetch client fallback:', e);
-        }
-        return null;
-    }
+// Delegate to modular FirebaseService defined in firebase-config.js
+const FirebaseDB = (typeof FirebaseService !== 'undefined') ? FirebaseService : {
+    saveClientProfile: async (p) => p,
+    fetchClientByEmail: async () => null,
+    syncClientWallet: async () => {},
+    recordClientTrade: async () => {}
 };
 
 // -------------------------------------------------------------
