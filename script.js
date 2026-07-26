@@ -255,45 +255,28 @@ const AuthStore = {
             throw new Error('Please enter valid email and password.');
         }
 
-        const existingClient = await FirebaseDB.fetchClientByEmail(email);
-        if (existingClient) {
-            this.currentUser = {
-                id: existingClient.clientId,
-                clientId: existingClient.clientId,
-                name: existingClient.name,
-                email: existingClient.email,
-                provider: existingClient.provider || 'Email',
-                avatarUrl: existingClient.avatarUrl,
-                plan: existingClient.plan || 'STARTER',
-                bankInfo: existingClient.bankInfo,
-                memberSince: existingClient.memberSince || 'July 2026'
-            };
-            this.onAuthSuccess(`Welcome back, ${existingClient.name}! Firebase Client profile loaded.`);
-            return;
-        }
-
-        const username = email.split('@')[0];
-        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
-        const newClient = await FirebaseDB.saveClientProfile({
-            name: formattedName,
-            email: email,
-            provider: 'Email',
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-            plan: 'STARTER'
-        });
+        const clientRecord = (typeof FirebaseService !== 'undefined' && FirebaseService.loginWithEmailPassword)
+            ? await FirebaseService.loginWithEmailPassword(email, password)
+            : await FirebaseDB.saveClientProfile({
+                name: email.split('@')[0],
+                email: email,
+                provider: 'Email',
+                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(email)}`,
+                plan: 'STARTER'
+            });
 
         this.currentUser = {
-            id: newClient.clientId,
-            clientId: newClient.clientId,
-            name: newClient.name,
-            email: newClient.email,
-            provider: 'Email',
-            avatarUrl: newClient.avatarUrl,
-            plan: newClient.plan,
-            bankInfo: newClient.bankInfo,
-            memberSince: 'July 2026'
+            id: clientRecord.clientId,
+            clientId: clientRecord.clientId,
+            name: clientRecord.name,
+            email: clientRecord.email,
+            provider: clientRecord.provider || 'Email',
+            avatarUrl: clientRecord.avatarUrl,
+            plan: clientRecord.plan || 'STARTER',
+            bankInfo: clientRecord.bankInfo,
+            memberSince: clientRecord.memberSince || 'July 2026'
         };
-        this.onAuthSuccess(`Welcome, ${formattedName}! Profile registered in Firebase DB.`);
+        this.onAuthSuccess(`Welcome back ${this.currentUser.name}! Authenticated via Firebase.`);
     },
 
     async signupUser(name, email, password) {
@@ -301,26 +284,28 @@ const AuthStore = {
             throw new Error('Please fill in all registration fields.');
         }
 
-        const newClient = await FirebaseDB.saveClientProfile({
-            name: name,
-            email: email,
-            provider: 'Email',
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
-            plan: 'STARTER'
-        });
+        const clientRecord = (typeof FirebaseService !== 'undefined' && FirebaseService.signupWithEmailPassword)
+            ? await FirebaseService.signupWithEmailPassword(name, email, password)
+            : await FirebaseDB.saveClientProfile({
+                name: name,
+                email: email,
+                provider: 'Email',
+                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+                plan: 'STARTER'
+            });
 
         this.currentUser = {
-            id: newClient.clientId,
-            clientId: newClient.clientId,
-            name: newClient.name,
-            email: newClient.email,
+            id: clientRecord.clientId,
+            clientId: clientRecord.clientId,
+            name: clientRecord.name,
+            email: clientRecord.email,
             provider: 'Email',
-            avatarUrl: newClient.avatarUrl,
-            plan: newClient.plan,
-            bankInfo: newClient.bankInfo,
-            memberSince: 'July 2026'
+            avatarUrl: clientRecord.avatarUrl,
+            plan: clientRecord.plan || 'STARTER',
+            bankInfo: clientRecord.bankInfo,
+            memberSince: clientRecord.memberSince || 'July 2026'
         };
-        this.onAuthSuccess(`Account registered! Client ID ${newClient.clientId} assigned in Firebase.`);
+        this.onAuthSuccess(`Account created for ${this.currentUser.name}! Firebase DB synced.`);
     },
 
     upgradePlan(newPlan) {

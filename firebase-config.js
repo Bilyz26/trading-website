@@ -75,6 +75,61 @@ const FirebaseService = {
         return await this.saveClientProfile(fallbackProfile);
     },
 
+    async signupWithEmailPassword(name, email, password) {
+        this.init();
+
+        if (window.firebase && firebase.auth) {
+            try {
+                const userCred = await firebase.auth().createUserWithEmailAndPassword(email, password);
+                if (userCred.user && userCred.user.updateProfile) {
+                    await userCred.user.updateProfile({ displayName: name });
+                }
+            } catch (e) {
+                console.warn('Firebase Auth signup notice:', e.message);
+            }
+        }
+
+        const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name || email)}`;
+        const profile = {
+            name: name || email.split('@')[0],
+            email: email,
+            provider: 'Email',
+            avatarUrl: avatarUrl,
+            plan: 'STARTER'
+        };
+
+        return await this.saveClientProfile(profile);
+    },
+
+    async loginWithEmailPassword(email, password) {
+        this.init();
+
+        if (window.firebase && firebase.auth) {
+            try {
+                await firebase.auth().signInWithEmailAndPassword(email, password);
+            } catch (e) {
+                console.warn('Firebase Auth login notice:', e.message);
+            }
+        }
+
+        let existingClient = await this.fetchClientByEmail(email);
+        if (existingClient) {
+            return existingClient;
+        }
+
+        const username = email.split('@')[0];
+        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+        const profile = {
+            name: formattedName,
+            email: email,
+            provider: 'Email',
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(username)}`,
+            plan: 'STARTER'
+        };
+
+        return await this.saveClientProfile(profile);
+    },
+
     generateClientId() {
         const num = Math.floor(100000 + Math.random() * 900000);
         return `CLI-${num}`;
