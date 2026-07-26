@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradeSim Pro | Advanced Trading Terminal</title>
+    <title>TradeSim Pro | Institutional Trading & Market Terminal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -17,20 +17,26 @@
         <!-- Fixed Header -->
         <header class="bg-darker py-3 sm:py-4 px-4 sm:px-6 border-b border-gray-800 fixed top-0 left-0 right-0 z-50">
             <div class="max-w-7xl mx-auto flex justify-between items-center">
-                <!-- Left: Logo & Menu -->
-                <div class="flex items-center space-x-2">
+                <!-- Left: Logo & Nav -->
+                <div class="flex items-center space-x-4">
                     <button id="sidebar-toggle" class="md:hidden text-gray-400 hover:text-accent p-1 focus:outline-none">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
-                    <div class="text-accent font-bold text-lg sm:text-xl lg:text-2xl flex items-center space-x-1.5">
+                    <a href="#landingHero" id="logoBtn" class="text-accent font-bold text-lg sm:text-xl lg:text-2xl flex items-center space-x-1.5">
                         <span>TradeSim</span>
                         <span class="text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded border border-accent/30 font-semibold">PRO</span>
-                    </div>
+                    </a>
+                    
+                    <nav class="hidden lg:flex items-center space-x-6 text-sm ml-6">
+                        <a href="#landingHero" class="text-gray-300 hover:text-accent font-medium transition-colors">Home</a>
+                        <a href="#marketOverview" class="text-gray-300 hover:text-accent font-medium transition-colors">Terminal</a>
+                        <a href="#pricingSection" class="text-gray-300 hover:text-accent font-medium transition-colors">Pricing & Plans</a>
+                    </nav>
                 </div>
 
-                <!-- Right: Theme, Reset & User Balance -->
+                <!-- Right: Cash, Auth & User Menu -->
                 <div class="flex items-center space-x-2 sm:space-x-4">
                     <div class="flex items-center space-x-2 bg-gray-800/80 px-3 py-1.5 rounded-lg border border-gray-700">
                         <span class="text-xs text-gray-400">Cash:</span>
@@ -49,8 +55,22 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                         </svg>
                     </button>
-                    <button id="user-menu" class="flex items-center hover:opacity-80 transition-opacity">
-                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-accent flex items-center justify-center text-dark font-bold text-sm sm:text-base">U</div>
+
+                    <!-- Unauthenticated Buttons (Hidden when logged in) -->
+                    <div id="unauthNavBtns" class="flex items-center space-x-2">
+                        <button id="openSignInBtn" class="text-xs sm:text-sm text-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors font-medium">
+                            Sign In
+                        </button>
+                        <button id="openSignUpBtn" class="text-xs sm:text-sm bg-accent hover:bg-yellow-400 text-dark font-bold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+                            Get Started
+                        </button>
+                    </div>
+
+                    <!-- Authenticated User Menu (Hidden when logged out) -->
+                    <button id="user-menu" class="hidden flex items-center space-x-2 bg-gray-800/80 hover:bg-gray-700/80 p-1.5 pr-3 rounded-full border border-gray-700 transition-all">
+                        <img id="userHeaderAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Trader" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-accent bg-gray-700" alt="Avatar">
+                        <span id="userHeaderName" class="text-xs font-bold text-white hidden sm:inline">Trader</span>
+                        <span id="userHeaderBadge" class="text-[10px] bg-accent/20 text-accent px-1.5 py-0.5 rounded font-mono font-bold">PRO</span>
                     </button>
                 </div>
             </div>
@@ -61,12 +81,20 @@
         <!-- Mobile Sidebar Backdrop -->
         <div id="sidebar-backdrop" class="fixed inset-0 bg-black/60 z-30 hidden md:hidden"></div>
 
-        <!-- Main Content -->
+        <!-- Main Content Layout -->
         <div class="flex flex-1 overflow-hidden">
-            <!-- Sidebar -->
+            <!-- Sidebar Navigation Drawer -->
             <aside id="sidebar-drawer" class="w-64 bg-darker border-r border-gray-800 fixed h-full top-[73px] z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300">
                 <nav class="p-4">
                     <ul class="space-y-2">
+                        <li>
+                            <a href="#landingHero" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-400 hover:bg-gray-800 hover:text-accent">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                </svg>
+                                <span>Home & Plans</span>
+                            </a>
+                        </li>
                         <li>
                             <a href="#marketOverview" class="nav-link flex items-center space-x-3 px-3 py-2 rounded-lg bg-gray-800 text-accent">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -104,9 +132,141 @@
                 </nav>
             </aside>
 
-            <!-- Main Panel -->
+            <!-- Main Scrollable Content Container -->
             <main class="flex-1 overflow-auto p-4 sm:p-6 md:ml-64 hide-scrollbar">
-                <div class="max-w-7xl mx-auto">
+                <div class="max-w-7xl mx-auto space-y-12">
+
+                    <!-- ======================================================= -->
+                    <!-- LANDING HERO PAGE SECTION -->
+                    <!-- ======================================================= -->
+                    <section id="landingHero" class="pt-4 pb-8 border-b border-gray-800">
+                        <div class="bg-gradient-to-br from-gray-900 via-darker to-gray-900 rounded-2xl p-6 sm:p-10 border border-gray-800 shadow-2xl relative overflow-hidden">
+                            <!-- Background Glow Effects -->
+                            <div class="absolute -top-24 -right-24 w-96 h-96 bg-accent/10 rounded-full blur-3xl pointer-events-none"></div>
+                            <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                            <div class="relative z-10 max-w-3xl">
+                                <div class="inline-flex items-center space-x-2 bg-accent/10 text-accent border border-accent/20 px-3 py-1 rounded-full text-xs font-semibold mb-6">
+                                    <span>✨ TradeSim Pro 2.0</span>
+                                    <span class="text-gray-400">•</span>
+                                    <span>Live WebSockets & Risk Engine</span>
+                                </div>
+
+                                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight mb-4">
+                                    Institutional Trading & Market Intelligence.
+                                </h1>
+                                <p class="text-base sm:text-lg text-gray-400 mb-8 leading-relaxed">
+                                    Practice stock, crypto, and forex trading with real-time zero-latency market feeds, dual-engine candlestick charts, limit target orders, attached stop-loss/take-profit, and zero real capital risk.
+                                </p>
+
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <a href="#marketOverview" class="bg-accent hover:bg-yellow-400 text-dark font-bold px-6 py-3.5 rounded-xl transition-all transform hover:-translate-y-0.5 shadow-lg flex items-center space-x-2 text-sm sm:text-base">
+                                        <span>🚀 Launch Trading Terminal</span>
+                                    </a>
+                                    <button id="googleHeroBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-medium px-5 py-3.5 rounded-xl border border-gray-700 transition-all flex items-center space-x-2 text-sm sm:text-base">
+                                        <svg class="w-5 h-5" viewBox="0 0 24 24">
+                                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                                        </svg>
+                                        <span>Continue with Google</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Services & Platform Highlights Grid -->
+                        <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bg-darker p-5 rounded-xl border border-gray-800">
+                                <div class="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold text-lg mb-3">⚡</div>
+                                <h3 class="font-bold text-white text-base mb-1">Live WebSocket Feeds</h3>
+                                <p class="text-xs text-gray-400">Zero-latency price ticks directly from Binance & European Central Bank rates.</p>
+                            </div>
+                            <div class="bg-darker p-5 rounded-xl border border-gray-800">
+                                <div class="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-lg mb-3">📊</div>
+                                <h3 class="font-bold text-white text-base mb-1">Dual-Engine Charts</h3>
+                                <p class="text-xs text-gray-400">TradingView Candlesticks & Chart.js fallback spanning 1D to MAX timeframes.</p>
+                            </div>
+                            <div class="bg-darker p-5 rounded-xl border border-gray-800">
+                                <div class="w-10 h-10 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center font-bold text-lg mb-3">🎯</div>
+                                <h3 class="font-bold text-white text-base mb-1">Stop-Loss / Take-Profit</h3>
+                                <p class="text-xs text-gray-400">Automatic background position liquidation engine when target prices trigger.</p>
+                            </div>
+                            <div class="bg-darker p-5 rounded-xl border border-gray-800">
+                                <div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-lg mb-3">📄</div>
+                                <h3 class="font-bold text-white text-base mb-1">CSV Trade Log Export</h3>
+                                <p class="text-xs text-gray-400">One-click trade history export to `.csv` and local wallet state backup.</p>
+                            </div>
+                        </div>
+
+                        <!-- Pricing Plans Section -->
+                        <div id="pricingSection" class="mt-12">
+                            <div class="text-center max-w-xl mx-auto mb-8">
+                                <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-2">Services & Membership Plans</h2>
+                                <p class="text-sm text-gray-400">Choose the ideal trading plan for your strategy. Upgrade anytime.</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <!-- Starter Free Plan -->
+                                <div class="bg-darker rounded-2xl p-6 border border-gray-800 flex flex-col justify-between hover:border-gray-700 transition-all">
+                                    <div>
+                                        <div class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">STARTER</div>
+                                        <div class="text-3xl font-extrabold text-white mb-1">$0 <span class="text-sm font-normal text-gray-500">/ forever</span></div>
+                                        <p class="text-xs text-gray-400 mb-6">Perfect for beginners practicing market basics.</p>
+                                        <ul class="space-y-3 text-xs text-gray-300 border-t border-gray-800/80 pt-4 mb-6">
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> $100,000 Virtual Starting Cash</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Real-Time Stocks & Forex Data</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Basic Market Execution Orders</li>
+                                        </ul>
+                                    </div>
+                                    <button onclick="selectPlan('STARTER')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl transition-all text-xs">
+                                        Current Plan
+                                    </button>
+                                </div>
+
+                                <!-- Trader Pro Plan (Popular) -->
+                                <div class="bg-gradient-to-b from-gray-900 to-darker rounded-2xl p-6 border-2 border-accent flex flex-col justify-between relative shadow-xl transform md:-translate-y-2">
+                                    <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-accent text-dark text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow">
+                                        MOST POPULAR
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-accent uppercase tracking-wider mb-2">TRADER PRO</div>
+                                        <div class="text-3xl font-extrabold text-white mb-1">$29 <span class="text-sm font-normal text-gray-500">/ month</span></div>
+                                        <p class="text-xs text-gray-400 mb-6">For active traders seeking pro execution & analytics.</p>
+                                        <ul class="space-y-3 text-xs text-gray-300 border-t border-gray-800/80 pt-4 mb-6">
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Everything in Starter</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Binance Zero-Latency WebSockets</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Stop-Loss & Take-Profit Engine</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Level-2 Live Order Book Depth</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> CSV Exports & Audio FX</li>
+                                        </ul>
+                                    </div>
+                                    <button onclick="selectPlan('PRO')" class="w-full bg-accent hover:bg-yellow-400 text-dark font-extrabold py-2.5 rounded-xl transition-all text-xs shadow-md">
+                                        Upgrade to Pro
+                                    </button>
+                                </div>
+
+                                <!-- Institutional Plan -->
+                                <div class="bg-darker rounded-2xl p-6 border border-gray-800 flex flex-col justify-between hover:border-gray-700 transition-all">
+                                    <div>
+                                        <div class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">INSTITUTIONAL</div>
+                                        <div class="text-3xl font-extrabold text-white mb-1">$99 <span class="text-sm font-normal text-gray-500">/ month</span></div>
+                                        <p class="text-xs text-gray-400 mb-6">For quant desks and institutional risk managers.</p>
+                                        <ul class="space-y-3 text-xs text-gray-300 border-t border-gray-800/80 pt-4 mb-6">
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Everything in Pro</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Custom SMA & Technical Overlays</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Unlimited CSV Data Exports</li>
+                                            <li class="flex items-center"><span class="text-accent mr-2">✓</span> Priority API Processing</li>
+                                        </ul>
+                                    </div>
+                                    <button onclick="selectPlan('INSTITUTIONAL')" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl transition-all text-xs">
+                                        Select Institutional
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                     <!-- Market Overview Section -->
                     <section id="marketOverview" class="mb-8">
                         <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
@@ -551,6 +711,112 @@
                     </section>
                 </div>
             </main>
+        </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- AUTHENTICATION MODAL (SIGN IN / SIGN UP / GOOGLE OAUTH) -->
+    <!-- ======================================================= -->
+    <div id="authModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darker border border-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative">
+            <button id="closeAuthModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-white p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <!-- Auth Header & Tabs -->
+            <div class="text-center mb-6">
+                <div class="text-accent font-extrabold text-2xl mb-1">TradeSim <span class="text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded font-mono">PRO</span></div>
+                <p class="text-xs text-gray-400" id="authModalSubtitle">Sign in to your TradeSim Pro account</p>
+                
+                <div class="flex bg-gray-900 p-1 rounded-xl border border-gray-800 mt-4 text-xs font-semibold">
+                    <button id="authTabSignIn" class="flex-1 py-2 rounded-lg bg-accent text-dark transition-all">Sign In</button>
+                    <button id="authTabSignUp" class="flex-1 py-2 rounded-lg text-gray-400 hover:text-white transition-all">Create Account</button>
+                </div>
+            </div>
+
+            <!-- Google One-Tap / OAuth Button -->
+            <button id="googleAuthBtn" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 rounded-xl border border-gray-700 transition-all flex items-center justify-center space-x-3 text-sm mb-4">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Continue with Google</span>
+            </button>
+
+            <div class="flex items-center my-4">
+                <div class="flex-1 border-t border-gray-800"></div>
+                <span class="px-3 text-[11px] text-gray-500 uppercase font-semibold">Or with email</span>
+                <div class="flex-1 border-t border-gray-800"></div>
+            </div>
+
+            <!-- Email & Password Form -->
+            <form id="authForm" onsubmit="event.preventDefault();" class="space-y-3">
+                <div id="nameInputGroup" class="hidden">
+                    <label class="block text-xs text-gray-400 mb-1">Full Name</label>
+                    <input id="authNameInput" type="text" placeholder="John Doe" class="w-full bg-gray-800 text-sm text-white px-3.5 py-2.5 rounded-xl border border-gray-700 focus:border-accent focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Email Address</label>
+                    <input id="authEmailInput" type="email" placeholder="trader@example.com" class="w-full bg-gray-800 text-sm text-white px-3.5 py-2.5 rounded-xl border border-gray-700 focus:border-accent focus:outline-none" required>
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Password</label>
+                    <input id="authPasswordInput" type="password" placeholder="••••••••" class="w-full bg-gray-800 text-sm text-white px-3.5 py-2.5 rounded-xl border border-gray-700 focus:border-accent focus:outline-none" required>
+                </div>
+
+                <button id="authSubmitBtn" class="w-full bg-accent hover:bg-yellow-400 text-dark font-bold py-3 rounded-xl transition-all text-sm mt-2 shadow-md">
+                    Sign In to Account
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- USER PROFILE MODAL -->
+    <!-- ======================================================= -->
+    <div id="profileModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-darker border border-gray-800 rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative">
+            <button id="closeProfileModalBtn" class="absolute top-4 right-4 text-gray-400 hover:text-white p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <!-- Profile Info Card -->
+            <div class="text-center mb-6">
+                <img id="modalProfileAvatar" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Trader" class="w-20 h-20 rounded-full border-2 border-accent mx-auto mb-3 bg-gray-800" alt="Profile Avatar">
+                <h3 id="modalProfileName" class="text-xl font-bold text-white mb-0.5">Alex Morgan</h3>
+                <p id="modalProfileEmail" class="text-xs text-gray-400 mb-3">alex.morgan@gmail.com</p>
+                <span id="modalProfileBadge" class="bg-accent/20 text-accent border border-accent/30 text-xs px-3 py-1 rounded-full font-mono font-bold">TRADER PRO PLAN</span>
+            </div>
+
+            <!-- Profile Account Stats -->
+            <div class="grid grid-cols-2 gap-3 bg-gray-900/80 p-4 rounded-xl border border-gray-800 mb-6 text-center">
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-semibold">Virtual Cash</div>
+                    <div id="modalProfileCash" class="font-bold text-accent text-sm">$100,000.00</div>
+                </div>
+                <div>
+                    <div class="text-[10px] text-gray-400 uppercase font-semibold">Total Trades</div>
+                    <div id="modalProfileTradesCount" class="font-bold text-white text-sm">24 Trades</div>
+                </div>
+            </div>
+
+            <!-- Upgrade & Sign Out Buttons -->
+            <div class="space-y-2.5">
+                <button onclick="document.getElementById('profileModal').classList.add('hidden'); document.getElementById('pricingSection').scrollIntoView({behavior: 'smooth'});" class="w-full bg-accent hover:bg-yellow-400 text-dark font-extrabold py-2.5 rounded-xl transition-all text-xs shadow">
+                    Upgrade Subscription Plan
+                </button>
+                <button id="signOutBtn" class="w-full bg-gray-800 hover:bg-gray-700 text-red-400 font-bold py-2.5 rounded-xl border border-gray-700 transition-all text-xs">
+                    Sign Out
+                </button>
+            </div>
         </div>
     </div>
 

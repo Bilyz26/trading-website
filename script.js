@@ -1,4 +1,4 @@
-// TradeSim Pro - Institutional Real-Time Trading Engine
+// TradeSim Pro - Institutional Real-Time Trading & Auth Engine
 const FINNHUB_API_KEY = 'd0cfedhr01ql2j3cqmqgd0cfedhr01ql2j3cqmr0';
 
 // Market Data Configurations
@@ -56,6 +56,7 @@ let priceCache = {};
 let previousPrices = {};
 let miniChartPrices = {};
 let showSmaIndicator = true;
+let currentAuthTab = 'SIGN_IN';
 
 // Order Mode States ('MARKET' or 'LIMIT')
 let buyOrderMode = 'MARKET';
@@ -73,6 +74,129 @@ let allocationChartInstance = null;
 
 // Binance WebSocket Handle
 let binanceWS = null;
+
+// -------------------------------------------------------------
+// USER AUTHENTICATION & PROFILE STORE
+// -------------------------------------------------------------
+const AuthStore = {
+    STORAGE_KEY: 'tradesim_user_session_v2',
+
+    currentUser: null,
+
+    init() {
+        const saved = localStorage.getItem(this.STORAGE_KEY);
+        if (saved) {
+            try {
+                this.currentUser = JSON.parse(saved);
+            } catch (e) {
+                console.error('Failed to parse user session:', e);
+            }
+        }
+        this.updateAuthUI();
+    },
+
+    save() {
+        if (this.currentUser) {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.currentUser));
+        } else {
+            localStorage.removeItem(this.STORAGE_KEY);
+        }
+        this.updateAuthUI();
+    },
+
+    loginWithGoogle() {
+        this.currentUser = {
+            id: 'usr_g_' + Date.now(),
+            name: 'Alex Morgan',
+            email: 'alex.morgan@gmail.com',
+            provider: 'Google',
+            avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocK-GoogleTraderAvatar=s96-c',
+            plan: 'PRO',
+            memberSince: 'July 2026'
+        };
+        this.save();
+        showToast('Successfully signed in with Google!', 'success');
+        AudioFX.playBuy();
+        closeAuthModal();
+    },
+
+    loginWithEmail(email, password) {
+        if (!email || !password) {
+            throw new Error('Please enter valid email and password.');
+        }
+        const username = email.split('@')[0];
+        const formattedName = username.charAt(0).toUpperCase() + username.slice(1);
+        this.currentUser = {
+            id: 'usr_e_' + Date.now(),
+            name: formattedName,
+            email: email,
+            provider: 'Email',
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
+            plan: 'STARTER',
+            memberSince: 'July 2026'
+        };
+        this.save();
+        showToast(`Welcome back, ${formattedName}!`, 'success');
+        AudioFX.playBuy();
+        closeAuthModal();
+    },
+
+    signupUser(name, email, password) {
+        if (!name || !email || !password) {
+            throw new Error('Please fill in all registration fields.');
+        }
+        this.currentUser = {
+            id: 'usr_e_' + Date.now(),
+            name: name,
+            email: email,
+            provider: 'Email',
+            avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`,
+            plan: 'STARTER',
+            memberSince: 'July 2026'
+        };
+        this.save();
+        showToast(`Account created successfully! Welcome ${name}`, 'success');
+        AudioFX.playBuy();
+        closeAuthModal();
+    },
+
+    upgradePlan(newPlan) {
+        if (!this.currentUser) {
+            this.loginWithGoogle();
+        }
+        this.currentUser.plan = newPlan;
+        this.save();
+        showToast(`Plan successfully updated to ${newPlan}!`, 'success');
+        AudioFX.playAlert();
+    },
+
+    logout() {
+        this.currentUser = null;
+        this.save();
+        showToast('Signed out of account.', 'info');
+        closeProfileModal();
+    },
+
+    updateAuthUI() {
+        const unauthBtns = document.getElementById('unauthNavBtns');
+        const userMenuBtn = document.getElementById('user-menu');
+        const userAvatar = document.getElementById('userHeaderAvatar');
+        const userName = document.getElementById('userHeaderName');
+        const userBadge = document.getElementById('userHeaderBadge');
+
+        if (this.currentUser) {
+            if (unauthBtns) unauthBtns.classList.add('hidden');
+            if (userMenuBtn) userMenuBtn.classList.remove('hidden');
+
+            if (userAvatar) userAvatar.src = this.currentUser.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Trader';
+            if (userName) userName.textContent = this.currentUser.name;
+            if (userBadge) userBadge.textContent = this.currentUser.plan;
+        } else {
+            if (unauthBtns) unauthBtns.classList.remove('hidden');
+            if (userMenuBtn) userMenuBtn.classList.add('hidden');
+        }
+    }
+};
 
 // -------------------------------------------------------------
 // WEB AUDIO FX MODULE (Synthesized Chimes)
@@ -344,6 +468,70 @@ function exportHistoryToCSV() {
     link.click();
     document.body.removeChild(link);
     showToast('Trade history exported to CSV file!', 'success');
+}
+
+function selectPlan(planName) {
+    AuthStore.upgradePlan(planName);
+}
+
+// -------------------------------------------------------------
+// MODALS CONTROL & AUTH HANDLERS
+// -------------------------------------------------------------
+function openAuthModal(tab = 'SIGN_IN') {
+    currentAuthTab = tab;
+    const modal = document.getElementById('authModal');
+    const nameGroup = document.getElementById('nameInputGroup');
+    const submitBtn = document.getElementById('authSubmitBtn');
+    const tabSignIn = document.getElementById('authTabSignIn');
+    const tabSignUp = document.getElementById('authTabSignUp');
+    const subtitle = document.getElementById('authModalSubtitle');
+
+    if (tab === 'SIGN_IN') {
+        nameGroup.classList.add('hidden');
+        submitBtn.textContent = 'Sign In to Account';
+        subtitle.textContent = 'Sign in to your TradeSim Pro account';
+        tabSignIn.className = 'flex-1 py-2 rounded-lg bg-accent text-dark font-bold transition-all';
+        tabSignUp.className = 'flex-1 py-2 rounded-lg text-gray-400 hover:text-white transition-all';
+    } else {
+        nameGroup.classList.remove('hidden');
+        submitBtn.textContent = 'Create Pro Account';
+        subtitle.textContent = 'Join TradeSim Pro to start market simulation';
+        tabSignUp.className = 'flex-1 py-2 rounded-lg bg-accent text-dark font-bold transition-all';
+        tabSignIn.className = 'flex-1 py-2 rounded-lg text-gray-400 hover:text-white transition-all';
+    }
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeAuthModal() {
+    const modal = document.getElementById('authModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function openProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (!modal) return;
+
+    const user = AuthStore.currentUser || {
+        name: 'Guest Trader',
+        email: 'guest@tradesim.pro',
+        plan: 'STARTER',
+        avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'
+    };
+
+    document.getElementById('modalProfileAvatar').src = user.avatarUrl;
+    document.getElementById('modalProfileName').textContent = user.name;
+    document.getElementById('modalProfileEmail').textContent = user.email;
+    document.getElementById('modalProfileBadge').textContent = `${user.plan} PLAN`;
+    document.getElementById('modalProfileCash').textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('modalProfileTradesCount').textContent = `${WalletStore.data.tradeHistory.length} Trades`;
+
+    modal.classList.remove('hidden');
+}
+
+function closeProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (modal) modal.classList.add('hidden');
 }
 
 // -------------------------------------------------------------
@@ -696,7 +884,6 @@ function generateHistoricalChartData(symbol, currentPrice, timeframe) {
         }
     }
 
-    // Set final bar close to current exact market price
     candleData[candleData.length - 1].close = currentPrice;
     linePrices[linePrices.length - 1] = currentPrice;
 
@@ -722,7 +909,6 @@ function renderChartJSFallback(symbol, currentPrice, dataObj) {
     gradient.addColorStop(0, isPositive ? 'rgba(14, 203, 129, 0.35)' : 'rgba(246, 70, 93, 0.35)');
     gradient.addColorStop(1, 'rgba(11, 14, 17, 0.0)');
 
-    // Compute SMA 20 for Chart.js
     const smaValues = [];
     for (let i = 0; i < dataObj.linePrices.length; i++) {
         if (i < 20) {
@@ -805,7 +991,6 @@ function renderTradingViewChart(symbol, currentPrice) {
 
     const dataObj = generateHistoricalChartData(symbol, currentPrice, currentTimeframe);
 
-    // Try Lightweight Charts rendering
     let lwSuccess = false;
     if (window.LightweightCharts) {
         try {
@@ -882,7 +1067,6 @@ function renderTradingViewChart(symbol, currentPrice) {
         }
     }
 
-    // High-performance Chart.js Fallback if Lightweight Charts fails
     if (!lwSuccess) {
         renderChartJSFallback(symbol, currentPrice, dataObj);
     }
@@ -1551,8 +1735,9 @@ function initializeMarketCards(market = 'stocks') {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Init Wallet & WebSockets
+    // 1. Init Wallet & WebSockets & User Auth Session
     WalletStore.init();
+    AuthStore.init();
     updateHeaderBalance();
     initBinanceWebSocket();
 
@@ -1572,7 +1757,38 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sidebarToggle) sidebarToggle.addEventListener('click', toggleMobileSidebar);
     if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', toggleMobileSidebar);
 
-    // 4. Timeframe Selector Listener
+    // 4. Auth Modal & Profile Listeners
+    document.getElementById('openSignInBtn')?.addEventListener('click', () => openAuthModal('SIGN_IN'));
+    document.getElementById('openSignUpBtn')?.addEventListener('click', () => openAuthModal('SIGN_UP'));
+    document.getElementById('closeAuthModalBtn')?.addEventListener('click', closeAuthModal);
+
+    document.getElementById('authTabSignIn')?.addEventListener('click', () => openAuthModal('SIGN_IN'));
+    document.getElementById('authTabSignUp')?.addEventListener('click', () => openAuthModal('SIGN_UP'));
+
+    document.getElementById('googleAuthBtn')?.addEventListener('click', () => AuthStore.loginWithGoogle());
+    document.getElementById('googleHeroBtn')?.addEventListener('click', () => AuthStore.loginWithGoogle());
+
+    document.getElementById('authSubmitBtn')?.addEventListener('click', () => {
+        const email = document.getElementById('authEmailInput')?.value;
+        const password = document.getElementById('authPasswordInput')?.value;
+        const name = document.getElementById('authNameInput')?.value;
+
+        try {
+            if (currentAuthTab === 'SIGN_IN') {
+                AuthStore.loginWithEmail(email, password);
+            } else {
+                AuthStore.signupUser(name, email, password);
+            }
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    });
+
+    document.getElementById('user-menu')?.addEventListener('click', openProfileModal);
+    document.getElementById('closeProfileModalBtn')?.addEventListener('click', closeProfileModal);
+    document.getElementById('signOutBtn')?.addEventListener('click', () => AuthStore.logout());
+
+    // 5. Timeframe Selector Listener
     document.getElementById('timeframeSelector')?.addEventListener('click', (e) => {
         const btn = e.target.closest('.tf-btn');
         if (btn && btn.dataset.tf) {
@@ -1588,7 +1804,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // 5. SMA Indicator Toggle
+    // 6. SMA Indicator Toggle
     const toggleSmaBtn = document.getElementById('toggleSmaBtn');
     if (toggleSmaBtn) {
         toggleSmaBtn.addEventListener('click', () => {
@@ -1598,7 +1814,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 6. Search Bar Listener
+    // 7. Search Bar Listener
     const searchInput = document.getElementById('marketSearchInput');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
@@ -1607,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 7. Reset Wallet Balance Listener
+    // 8. Reset Wallet Balance Listener
     const resetBtn = document.getElementById('resetWalletBtn');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -1623,10 +1839,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 8. Export CSV Listener
+    // 9. Export CSV Listener
     document.getElementById('exportCsvBtn')?.addEventListener('click', exportHistoryToCSV);
 
-    // 9. Scroll Navigation Tracking
+    // 10. Scroll Navigation Tracking
     const mainPanel = document.querySelector('main');
     const navLinks = document.querySelectorAll('.nav-link');
     const sections = document.querySelectorAll('section[id]');
@@ -1668,7 +1884,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 10. Market Filter Tabs Listener
+    // 11. Market Filter Tabs Listener
     const marketFilter = document.getElementById('marketFilter');
     if (marketFilter) {
         marketFilter.addEventListener('click', (e) => {
@@ -1680,12 +1896,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // 11. Theme Toggle
+    // 12. Theme Toggle
     document.getElementById('theme-toggle')?.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
     });
 
-    // 12. Initial Load & Setup
+    // 13. Initial Load & Setup
     initializeTradeForms();
     initializeMarketCards('stocks');
     await selectStock('AAPL');
@@ -1693,6 +1909,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPendingOrdersTable();
     renderHistoryTable();
 
-    // 13. Background Live Polling (every 3 seconds)
+    // 14. Background Live Polling (every 3 seconds)
     setInterval(updateAllPrices, 3000);
 });
