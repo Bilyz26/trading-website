@@ -1,125 +1,85 @@
-# Bilance - Professional Trading Platform
+# 📈 TradeSim Pro - Institutional-Grade Trading Simulator Terminal
 
-A modern, responsive trading platform for stocks, cryptocurrencies, and indices. Built with a clean, intuitive interface, Bilance provides real-time market data and advanced trading features for both beginners and experienced traders.
+**TradeSim Pro** is a modern, high-performance, real-time web trading terminal designed for Stocks, Cryptocurrencies, Forex pairs, and Global Market Indices. Featuring **zero-latency Binance WebSockets**, **Frankfurter ECB Forex API**, **Dual-Engine Candlestick Charting**, **Stop-Loss / Take-Profit Risk Engine**, **Level-2 Live Order Book**, and **CSV Trade History Export**.
 
-## 🚀 Features
+---
 
-### Market Data & Trading
-- **Multi-Market Support**: Trade stocks, cryptocurrencies, and indices all in one platform
-- **Real-time Data**: Live price updates and market movements
-- **Advanced Charting**: Interactive price charts with technical indicators
-- **Virtual Trading**: Practice with $100,000 virtual balance
+## ⚡ Key Features
 
-### User Experience
-- **Modern Interface**: Clean, intuitive dark-themed design
-- **Fully Responsive**: Optimized for all devices (mobile, tablet, desktop)
-- **Real-time Updates**: Live price changes and market movements
-- **Performance Tracking**: Monitor your portfolio and trading history
+### 📡 1. Real-Time Public Live APIs (Zero API Keys Required)
+- **Binance Live WebSocket Stream (`wss://stream.binance.com:9443`)**: Zero-latency real-time ticker stream for `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `ADAUSDT`, `DOGEUSDT`, and `XRPUSDT`.
+- **Frankfurter ECB Forex API (`https://api.frankfurter.app/latest`)**: Real-time European Central Bank foreign exchange rates for `EUR/USD`, `GBP/USD`, `USD/JPY`, and `AUD/USD`.
+- **Live Search & Market Filters**: Instant search bar filtering across **Stocks**, **Crypto**, **Forex**, and **Indices**.
 
-## 🛠️ Technical Stack
+### 📊 2. Institutional Dual-Engine Charting
+- **Primary Engine**: **TradingView Lightweight Charts** (`lightweight-charts.standalone.production.js`) with OHLC Candlesticks, Volume histogram bars, and SMA 20 Moving Average line.
+- **Fallback Engine**: **Chart.js Financial Area Chart** guaranteeing 100% zero-blank chart rendering across all network environments.
+- **Interactive Timeframe Selectors**: Switch seamlessly between **1D**, **1W**, **1M**, **3M**, **6M**, **1Y**, and **MAX** historical range views.
+- **Unique Mini Sparkline Cards**: Every market asset displays its own unique historical trend line and live price flash micro-animations.
 
-### Frontend
-- HTML5 & CSS3
-- Tailwind CSS for styling
-- Vanilla JavaScript for functionality
+### 🎯 3. Advanced Order Engine & Risk Management
+- **Market Orders**: Instant execution at live market price.
+- **Limit Target Orders**: Set target entry/exit prices; background processor automatically executes orders when market hits target thresholds.
+- **Attached Stop-Loss (SL) & Take-Profit (TP)**: Set automatic SL and TP targets on position entry. Real-time background risk engine automatically liquidates positions when thresholds are crossed.
+- **Pending Orders Panel**: View and cancel active limit orders with one click.
 
-### Libraries & Tools
-- Chart.js for interactive charts
-- Axios for API requests
-- Font Awesome for icons
+### 💼 4. Portfolio Analytics & Asset Allocation
+- **Cost-Basis Position Tracking**: Calculates true unrealized P&L: `(Current Price - Avg Cost) * Quantity`.
+- **Asset Allocation Donut Chart**: Chart.js doughnut chart breaking down total portfolio equity across Cash, Stocks, Crypto, and Forex.
+- **CSV Trade Log Export**: One-click download of full trading history into `.csv` format (`TradeSim_Pro_History.csv`).
+- **One-Click Liquidation**: "Sell All" button directly in the portfolio row.
+- **Reset Simulator Wallet**: Header button to reset account cash back to initial $100,000.00.
 
-### Development
-- Mobile-first responsive design
-- Dark theme optimized for trading
-- Modular JavaScript architecture
+### 🔔 5. Audio Micro-Interactions & Level-2 Order Book
+- **Web Audio FX**: Browser-synthesized audio chimes for Buy orders, Sell orders, and SL/TP trigger alerts.
+- **Level-2 Live Order Book**: Real-time Bid (Green) and Ask (Red) depth visualization with live spread calculations.
 
-## 📦 Dependencies
+---
 
-- Tailwind CSS (via CDN)
-- Chart.js
-- Axios
+## 🛠️ Tech Stack & Architecture
 
-## 🏃‍♂️ Getting Started
+- **Frontend Core**: HTML5, Vanilla JavaScript (ES6+), CSS3.
+- **Styling**: Tailwind CSS (Dark Theme, Glassmorphism, Responsive Grid).
+- **Libraries**: 
+  - [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts)
+  - [Chart.js](https://www.chartjs.org/) & `chartjs-adapter-date-fns`
+  - [Axios HTTP Client](https://axios-http.com/)
+- **Data Persistence**: `localStorage` (Client-side Wallet Engine).
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/binancelite.git
-   ```
+---
 
-2. Open the project folder:
-   ```bash
-   cd binancelite
-   ```
+## 🚀 Quick Start & Running Locally
 
-3. Open `index.html` in your browser or use a local server:
-   ```bash
-   # Using Python
-   python -m http.server 8000
-   # Using Node.js
-   npx serve
-   ```
+Because TradeSim Pro runs 100% client-side with free public APIs, no server installation or API keys are required.
 
-## 📱 Responsive Design
+### Option 1: Direct File Launch
+Simply double-click [`index.html`](file:///c:/Users/bilal/OneDrive/Bureau/Karrier%20projecte/trading-website/index.html) to open in your browser!
 
-### Breakpoints
-- **Mobile** (< 640px)
-  - Single column layout
-  - Optimized touch targets
-  - Simplified navigation
-  - Condensed market cards
+### Option 2: Local HTTP Server
+```bash
+# Clone the repository
+git clone https://github.com/Bilyz26/trading-website.git
 
-- **Tablet** (640px - 1024px)
-  - Two-column market grid
-  - Expanded navigation
-  - Balance visibility
-  - Larger interactive elements
+# Navigate to project directory
+cd trading-website
 
-- **Desktop** (> 1024px)
-  - Multi-column layout
-  - Persistent sidebar
-  - Full feature visibility
-  - Enhanced trading interface
+# Run with Python
+python -m http.server 8000
 
-## 💹 Trading Features
+# OR run with Node / npx
+npx serve .
+```
+Then open `http://localhost:8000` in your web browser.
 
-### Market Analysis
-- Real-time price tracking
-- Multiple market views (Stocks/Crypto/Indices)
-- Price change indicators
-- Market sentiment data
+---
 
-### Trading Tools
-- One-click trading interface
-- Market and limit orders
-- Position tracking
-- Portfolio analytics
+## 📱 Responsive Layout Support
 
-### Risk Management
-- Virtual balance system
-- Position sizing calculator
-- Profit/Loss tracking
-- Trade history
+- **Mobile (< 768px)**: Collapsible sidebar navigation drawer with backdrop overlay, single-column market cards, touch-optimized trade controls.
+- **Tablet & Desktop (>= 768px)**: Persistent sidebar navigation, multi-column market overview grid, side-by-side Order Book & Trading forms.
 
-### User Experience
-- Intuitive navigation
-- Quick market switching
-- Real-time notifications
-- Error handling & feedback
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+---
 
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Design inspired by modern trading platforms
-- Market data provided by various public APIs
-- Icons from Heroicons

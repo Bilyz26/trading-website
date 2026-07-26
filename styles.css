@@ -329,16 +329,78 @@ body {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
-.sidebar-link.active:hover .sidebar-icon {
-    color: var(--dark);
+
+/* Price Tick Animations */
+@keyframes flashUp {
+    0% { background-color: rgba(14, 203, 129, 0.35); color: #0ECB81; }
+    100% { background-color: transparent; }
 }
-.skeleton {
-    background-color: #1E2329;
-    background-image: linear-gradient(90deg, #1E2329, #2A3139, #1E2329);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+
+@keyframes flashDown {
+    0% { background-color: rgba(246, 70, 93, 0.35); color: #F6465D; }
+    100% { background-color: transparent; }
 }
-@keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+
+.price-flash-up {
+    animation: flashUp 0.8s ease-out;
 }
+
+.price-flash-down {
+    animation: flashDown 0.8s ease-out;
+}
+
+/* Mobile Sidebar Backdrop */
+#sidebar-backdrop {
+    transition: opacity 0.3s ease;
+}
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 100;
+    display: flex;
+    flex-col: column;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-radius: 0.5rem;
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 0.875rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.toast-success {
+    background-color: #0E2A1F;
+    border-left: 4px solid #0ECB81;
+    color: #0ECB81;
+}
+
+.toast-error {
+    background-color: #32161A;
+    border-left: 4px solid #F6465D;
+    color: #F6465D;
+}
+
+.toast-info {
+    background-color: #262110;
+    border-left: 4px solid #F0B90B;
+    color: #F0B90B;
+}

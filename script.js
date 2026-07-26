@@ -1,6 +1,7 @@
+// TradeSim Pro - Institutional Real-Time Trading Engine
 const FINNHUB_API_KEY = 'd0cfedhr01ql2j3cqmqgd0cfedhr01ql2j3cqmr0';
 
-// Market data configuration
+// Market Data Configurations
 const MARKET_DATA = {
     stocks: [
         { symbol: 'AAPL', name: 'Apple Inc.' },
@@ -18,6 +19,12 @@ const MARKET_DATA = {
         { symbol: 'BINANCE:DOGEUSDT', name: 'Dogecoin' },
         { symbol: 'BINANCE:XRPUSDT', name: 'Ripple' }
     ],
+    forex: [
+        { symbol: 'EURUSD', name: 'Euro / US Dollar' },
+        { symbol: 'GBPUSD', name: 'British Pound / USD' },
+        { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen' },
+        { symbol: 'AUDUSD', name: 'Australian Dollar / USD' }
+    ],
     indices: [
         { symbol: '^GSPC', name: 'S&P 500' },
         { symbol: '^DJI', name: 'Dow Jones' },
@@ -28,92 +35,1128 @@ const MARKET_DATA = {
     ]
 };
 
-// Current market type and symbols
+// Timeframe Configurations
+const TIMEFRAME_CONFIGS = {
+    '1D': { count: 78, isIntraday: true, stepDays: 0 },
+    '1W': { count: 7, isIntraday: false, stepDays: 1 },
+    '1M': { count: 30, isIntraday: false, stepDays: 1 },
+    '3M': { count: 90, isIntraday: false, stepDays: 1 },
+    '6M': { count: 180, isIntraday: false, stepDays: 1 },
+    '1Y': { count: 365, isIntraday: false, stepDays: 1 },
+    'MAX': { count: 500, isIntraday: false, stepDays: 2 }
+};
+
+// Global App State
 let currentMarket = 'stocks';
 let currentSymbols = MARKET_DATA.stocks;
+let selectedSymbol = 'AAPL';
+let currentTimeframe = '1D';
+let searchQuery = '';
+let priceCache = {};
+let previousPrices = {};
+let miniChartPrices = {};
+let showSmaIndicator = true;
 
-// Theme Toggle
-document.getElementById('theme-toggle').addEventListener('click', function() {
-    document.documentElement.classList.toggle('dark');
-});
+// Order Mode States ('MARKET' or 'LIMIT')
+let buyOrderMode = 'MARKET';
+let sellOrderMode = 'MARKET';
 
-// Sidebar Navigation
-document.addEventListener('DOMContentLoaded', () => {
-    const navLinks = document.querySelectorAll('.nav-link');
-    const sections = document.querySelectorAll('section[id]');
+// Chart Handles
+let tvChart = null;
+let candlestickSeries = null;
+let volumeSeries = null;
+let smaSeries = null;
+let currentCandleData = null;
+let chartJsMainInstance = null;
+let miniChartInstances = {};
+let allocationChartInstance = null;
 
-    // Smooth scroll to section when clicking nav links
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const targetId = link.getAttribute('href');
-            const targetSection = document.querySelector(targetId);
-            if (targetSection) {
-                targetSection.scrollIntoView({ behavior: 'smooth' });
+// Binance WebSocket Handle
+let binanceWS = null;
+
+// -------------------------------------------------------------
+// WEB AUDIO FX MODULE (Synthesized Chimes)
+// -------------------------------------------------------------
+const AudioFX = {
+    ctx: null,
+
+    init() {
+        if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+        }
+    },
+
+    playTone(freq, type, duration, gainVal) {
+        try {
+            this.init();
+            if (!this.ctx) return;
+            if (this.ctx.state === 'suspended') this.ctx.resume();
+
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            g.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+
+            osc.connect(g);
+            g.connect(this.ctx.destination);
+
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+            // Audio policy fallback
+        }
+    },
+
+    playBuy() {
+        this.playTone(880, 'sine', 0.2, 0.15);
+        setTimeout(() => this.playTone(1174.66, 'sine', 0.25, 0.1), 80);
+    },
+
+    playSell() {
+        this.playTone(587.33, 'triangle', 0.2, 0.15);
+        setTimeout(() => this.playTone(440, 'triangle', 0.25, 0.1), 80);
+    },
+
+    playAlert() {
+        this.playTone(659.25, 'sine', 0.15, 0.2);
+        setTimeout(() => this.playTone(880, 'sine', 0.3, 0.2), 150);
+    }
+};
+
+// -------------------------------------------------------------
+// WALLET & RISK ENGINE
+// -------------------------------------------------------------
+const WalletStore = {
+    STORAGE_KEY: 'tradesim_wallet_v8_pro',
+
+    data: {
+        cashBalance: 100000.00,
+        positions: {
+            AAPL: { quantity: 10, avgCost: 170.00, stopLoss: 160.00, takeProfit: 190.00 },
+            'BINANCE:BTCUSDT': { quantity: 0.25, avgCost: 61000.00, stopLoss: 58000.00, takeProfit: 70000.00 }
+        },
+        pendingOrders: [],
+        tradeHistory: [
+            {
+                id: 'tx_init_1',
+                timestamp: Date.now() - 86400000,
+                symbol: 'AAPL',
+                type: 'BUY',
+                quantity: 10,
+                price: 170.00,
+                total: 1700.00
+            },
+            {
+                id: 'tx_init_2',
+                timestamp: Date.now() - 43200000,
+                symbol: 'BINANCE:BTCUSDT',
+                type: 'BUY',
+                quantity: 0.25,
+                price: 61000.00,
+                total: 15250.00
             }
+        ]
+    },
+
+    init() {
+        const saved = localStorage.getItem(this.STORAGE_KEY);
+        if (saved) {
+            try {
+                this.data = JSON.parse(saved);
+                if (!this.data.pendingOrders) this.data.pendingOrders = [];
+            } catch (e) {
+                console.error('Failed to parse saved wallet:', e);
+            }
+        }
+        this.save();
+    },
+
+    save() {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.data));
+    },
+
+    resetWallet() {
+        this.data = {
+            cashBalance: 100000.00,
+            positions: {},
+            pendingOrders: [],
+            tradeHistory: []
+        };
+        this.save();
+    },
+
+    getCash() {
+        return this.data.cashBalance;
+    },
+
+    getPosition(symbol) {
+        return this.data.positions[symbol] || { quantity: 0, avgCost: 0, stopLoss: null, takeProfit: null };
+    },
+
+    executeTrade(type, symbol, quantity, price, stopLoss = null, takeProfit = null) {
+        const totalCost = quantity * price;
+
+        if (type === 'BUY') {
+            if (this.data.cashBalance < totalCost) {
+                throw new Error(`Insufficient cash! Required $${totalCost.toFixed(2)}, Available $${this.data.cashBalance.toFixed(2)}`);
+            }
+            this.data.cashBalance -= totalCost;
+
+            const existing = this.data.positions[symbol] || { quantity: 0, avgCost: 0 };
+            const newQty = existing.quantity + quantity;
+            const newAvgCost = ((existing.quantity * existing.avgCost) + totalCost) / newQty;
+
+            this.data.positions[symbol] = {
+                quantity: newQty,
+                avgCost: newAvgCost,
+                stopLoss: stopLoss || existing.stopLoss || null,
+                takeProfit: takeProfit || existing.takeProfit || null
+            };
+            AudioFX.playBuy();
+        } else if (type === 'SELL') {
+            const existing = this.data.positions[symbol] || { quantity: 0, avgCost: 0 };
+            if (existing.quantity < quantity) {
+                throw new Error(`Insufficient holdings! You only own ${existing.quantity} of ${cleanSymbolStr(symbol)}`);
+            }
+
+            this.data.cashBalance += totalCost;
+            existing.quantity -= quantity;
+
+            if (existing.quantity <= 0.000001) {
+                delete this.data.positions[symbol];
+            } else {
+                this.data.positions[symbol] = existing;
+            }
+            AudioFX.playSell();
+        }
+
+        this.data.tradeHistory.unshift({
+            id: 'tx_' + Date.now(),
+            timestamp: Date.now(),
+            symbol: symbol,
+            type: type,
+            quantity: quantity,
+            price: price,
+            total: totalCost
         });
+
+        this.save();
+    },
+
+    addPendingLimitOrder(type, symbol, quantity, targetPrice) {
+        const totalCost = quantity * targetPrice;
+        if (type === 'BUY' && this.data.cashBalance < totalCost) {
+            throw new Error(`Insufficient cash for Limit Order! Required $${totalCost.toFixed(2)}`);
+        }
+        if (type === 'SELL') {
+            const pos = this.getPosition(symbol);
+            if (pos.quantity < quantity) {
+                throw new Error(`Insufficient holdings for Limit Sell! You own ${pos.quantity}`);
+            }
+        }
+
+        const order = {
+            id: 'ord_' + Date.now(),
+            timestamp: Date.now(),
+            type,
+            symbol,
+            quantity,
+            targetPrice
+        };
+        this.data.pendingOrders.push(order);
+        this.save();
+        return order;
+    },
+
+    cancelPendingOrder(orderId) {
+        this.data.pendingOrders = this.data.pendingOrders.filter(o => o.id !== orderId);
+        this.save();
+    }
+};
+
+// -------------------------------------------------------------
+// HELPER UTILITIES & TOASTS
+// -------------------------------------------------------------
+function cleanSymbolStr(sym) {
+    if (!sym) return '';
+    return sym.replace('BINANCE:', '').replace('^', '');
+}
+
+function formatPrice(price, marketType = currentMarket) {
+    if (price === undefined || price === null || isNaN(price)) return '--';
+    if (marketType === 'crypto') {
+        if (price >= 1000) return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (price >= 1) return `$${price.toFixed(4)}`;
+        return `$${price.toFixed(6)}`;
+    }
+    if (marketType === 'forex') {
+        return price.toFixed(4);
+    }
+    if (marketType === 'indices') {
+        return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    let icon = 'ℹ️';
+    if (type === 'success') icon = '✅';
+    if (type === 'error') icon = '⚠️';
+
+    toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+    container.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+function exportHistoryToCSV() {
+    const history = WalletStore.data.tradeHistory;
+    if (!history || history.length === 0) {
+        showToast('No trade history available to export.', 'error');
+        return;
+    }
+
+    let csvContent = 'data:text/csv;charset=utf-8,ID,Date & Time,Asset,Type,Quantity,Execution Price (USD),Total Value (USD)\n';
+    history.forEach(row => {
+        const dateStr = new Date(row.timestamp).toISOString();
+        csvContent += `"${row.id}","${dateStr}","${cleanSymbolStr(row.symbol)}","${row.type}",${row.quantity},${row.price},${row.total}\n`;
     });
 
-    // Update active link based on scroll position
-    function updateActiveLink() {
-        const fromTop = window.scrollY + 100; // Offset for header
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `TradeSim_Pro_History_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Trade history exported to CSV file!', 'success');
+}
 
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.offsetHeight;
-            const sectionId = section.getAttribute('id');
-            const correspondingLink = document.querySelector(`.nav-link[href="#${sectionId}"]`);
+// -------------------------------------------------------------
+// LIVE FREE WEBSOCKET & FOREX DATA ENGINES
+// -------------------------------------------------------------
+function initBinanceWebSocket() {
+    if (binanceWS) return;
 
-            if (fromTop >= sectionTop && fromTop < sectionTop + sectionHeight) {
-                // Remove active class from all links
-                navLinks.forEach(link => {
-                    link.classList.remove('bg-gray-800', 'text-accent');
-                    link.classList.add('text-gray-400');
-                });
-                // Add active class to current link
-                if (correspondingLink) {
-                    correspondingLink.classList.remove('text-gray-400');
-                    correspondingLink.classList.add('bg-gray-800', 'text-accent');
+    try {
+        binanceWS = new WebSocket('wss://stream.binance.com:9443/ws/!miniTicker@arr');
+
+        binanceWS.onmessage = (event) => {
+            const tickers = JSON.parse(event.data);
+            if (!Array.isArray(tickers)) return;
+
+            const cryptoSymbolsMap = {
+                'BTCUSDT': 'BINANCE:BTCUSDT',
+                'ETHUSDT': 'BINANCE:ETHUSDT',
+                'BNBUSDT': 'BINANCE:BNBUSDT',
+                'ADAUSDT': 'BINANCE:ADAUSDT',
+                'DOGEUSDT': 'BINANCE:DOGEUSDT',
+                'XRPUSDT': 'BINANCE:XRPUSDT'
+            };
+
+            let updatedAny = false;
+            tickers.forEach(t => {
+                const fullSymbol = cryptoSymbolsMap[t.s];
+                if (fullSymbol) {
+                    const lastPrice = parseFloat(t.c);
+                    const openPrice = parseFloat(t.o);
+                    const priceChange = lastPrice - openPrice;
+                    const percentChange = ((lastPrice - openPrice) / openPrice) * 100;
+
+                    const data = {
+                        c: lastPrice,
+                        d: priceChange,
+                        dp: percentChange,
+                        pc: openPrice
+                    };
+
+                    priceCache[fullSymbol] = { timestamp: Date.now(), data };
+                    
+                    if (currentMarket === 'crypto') {
+                        const item = MARKET_DATA.crypto.find(c => c.symbol === fullSymbol);
+                        if (item) updateSinglePriceDisplay(item);
+                    }
+                    if (selectedSymbol === fullSymbol) {
+                        updateDetailDisplay(fullSymbol, data);
+                    }
+                    updatedAny = true;
                 }
+            });
+
+            if (updatedAny) {
+                checkPendingLimitOrders();
+                checkStopLossTakeProfit();
             }
+        };
+
+        binanceWS.onerror = (err) => console.warn('Binance WebSocket error:', err);
+        binanceWS.onclose = () => {
+            binanceWS = null;
+            setTimeout(initBinanceWebSocket, 5000);
+        };
+    } catch (e) {
+        console.warn('Failed to connect to Binance WebSocket:', e);
+    }
+}
+
+async function fetchFrankfurterForexData() {
+    try {
+        const response = await axios.get('https://api.frankfurter.app/latest?from=USD');
+        if (response.data && response.data.rates) {
+            const rates = response.data.rates;
+            const eurusd = rates.EUR ? (1 / rates.EUR) : 1.0850;
+            const gbpusd = rates.GBP ? (1 / rates.GBP) : 1.2750;
+            const usdjpy = rates.JPY || 155.20;
+            const audusd = rates.AUD ? (1 / rates.AUD) : 0.6550;
+
+            const forexMap = {
+                'EURUSD': { c: eurusd, d: 0.0012, dp: 0.11, pc: eurusd - 0.0012 },
+                'GBPUSD': { c: gbpusd, d: -0.0020, dp: -0.16, pc: gbpusd + 0.0020 },
+                'USDJPY': { c: usdjpy, d: 0.45, dp: 0.29, pc: usdjpy - 0.45 },
+                'AUDUSD': { c: audusd, d: 0.0015, dp: 0.23, pc: audusd - 0.0015 }
+            };
+
+            Object.entries(forexMap).forEach(([sym, data]) => {
+                priceCache[sym] = { timestamp: Date.now(), data };
+            });
+        }
+    } catch (e) {
+        console.warn('Frankfurter Forex API fallback active.');
+    }
+}
+
+const MOCK_PRICES = {
+    'AAPL': { price: 178.45, change: 1.25 },
+    'MSFT': { price: 405.20, change: -0.45 },
+    'GOOGL': { price: 142.80, change: 0.85 },
+    'AMZN': { price: 174.60, change: 2.10 },
+    'META': { price: 485.30, change: -1.15 },
+    'TSLA': { price: 202.10, change: 3.40 },
+    'BINANCE:BTCUSDT': { price: 62450.00, change: 2.85 },
+    'BINANCE:ETHUSDT': { price: 3480.50, change: 1.65 },
+    'BINANCE:BNBUSDT': { price: 580.20, change: -0.80 },
+    'BINANCE:ADAUSDT': { price: 0.48, change: 4.10 },
+    'BINANCE:DOGEUSDT': { price: 0.14, change: -2.30 },
+    'BINANCE:XRPUSDT': { price: 0.54, change: 0.95 },
+    'EURUSD': { price: 1.0850, change: 0.12 },
+    'GBPUSD': { price: 1.2720, change: -0.15 },
+    'USDJPY': { price: 155.40, change: 0.30 },
+    'AUDUSD': { price: 0.6580, change: 0.20 },
+    '^GSPC': { price: 5088.80, change: 0.55 },
+    '^DJI': { price: 38980.20, change: 0.32 },
+    '^IXIC': { price: 16090.50, change: 0.90 },
+    '^FTSE': { price: 7680.40, change: -0.20 },
+    '^N225': { price: 39100.00, change: 1.45 },
+    '^GDAXI': { price: 17420.60, change: 0.28 }
+};
+
+async function fetchMarketData(symbol) {
+    if (priceCache[symbol] && (Date.now() - priceCache[symbol].timestamp < 3000)) {
+        return priceCache[symbol].data;
+    }
+
+    if (currentMarket === 'forex') {
+        await fetchFrankfurterForexData();
+        if (priceCache[symbol]) return priceCache[symbol].data;
+    }
+
+    try {
+        if (currentMarket === 'stocks') {
+            const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`);
+            if (response.data && response.data.c !== 0) {
+                const data = {
+                    c: response.data.c,
+                    d: response.data.d,
+                    dp: response.data.dp,
+                    pc: response.data.pc
+                };
+                priceCache[symbol] = { timestamp: Date.now(), data };
+                return data;
+            }
+        }
+    } catch (e) {
+        // Fallback
+    }
+
+    const base = MOCK_PRICES[symbol] || { price: 100.0, change: 0.5 };
+    const jitter = (Math.random() - 0.49) * (base.price * 0.003);
+    const newPrice = Math.max(0.0001, base.price + jitter);
+    const priceChange = newPrice * (base.change / 100);
+
+    const data = {
+        c: newPrice,
+        d: priceChange,
+        dp: base.change,
+        pc: newPrice - priceChange
+    };
+
+    priceCache[symbol] = { timestamp: Date.now(), data };
+    return data;
+}
+
+// -------------------------------------------------------------
+// STOP-LOSS (SL) & TAKE-PROFIT (TP) RISK ENGINE
+// -------------------------------------------------------------
+function checkStopLossTakeProfit() {
+    const positions = WalletStore.data.positions;
+    if (!positions) return;
+
+    Object.entries(positions).forEach(([symbol, pos]) => {
+        if (pos.quantity <= 0) return;
+        const cached = priceCache[symbol];
+        if (!cached) return;
+
+        const currentPrice = cached.data.c;
+
+        if (pos.stopLoss && currentPrice <= pos.stopLoss) {
+            try {
+                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice);
+                AudioFX.playAlert();
+                showToast(`🛑 STOP-LOSS TRIGGERED! Sold ${pos.quantity} ${cleanSymbolStr(symbol)} @ $${currentPrice.toFixed(2)}`, 'error');
+                renderPortfolioTable();
+                renderHistoryTable();
+                updateHeaderBalance();
+            } catch (err) {
+                console.error('Stop-Loss Execution error:', err);
+            }
+        }
+        else if (pos.takeProfit && currentPrice >= pos.takeProfit) {
+            try {
+                WalletStore.executeTrade('SELL', symbol, pos.quantity, currentPrice);
+                AudioFX.playAlert();
+                showToast(`🎯 TAKE-PROFIT TRIGGERED! Sold ${pos.quantity} ${cleanSymbolStr(symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
+                renderPortfolioTable();
+                renderHistoryTable();
+                updateHeaderBalance();
+            } catch (err) {
+                console.error('Take-Profit Execution error:', err);
+            }
+        }
+    });
+}
+
+function checkPendingLimitOrders() {
+    const orders = WalletStore.data.pendingOrders;
+    if (!orders || orders.length === 0) return;
+
+    const remaining = [];
+    orders.forEach(order => {
+        const cached = priceCache[order.symbol];
+        if (!cached) {
+            remaining.push(order);
+            return;
+        }
+
+        const currentPrice = cached.data.c;
+        let executed = false;
+
+        if (order.type === 'BUY' && currentPrice <= order.targetPrice) {
+            try {
+                WalletStore.executeTrade('BUY', order.symbol, order.quantity, currentPrice);
+                AudioFX.playAlert();
+                showToast(`🎯 LIMIT BUY EXECUTED! Bought ${order.quantity} ${cleanSymbolStr(order.symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
+                executed = true;
+            } catch (err) {
+                showToast(`Limit Buy Failed: ${err.message}`, 'error');
+            }
+        } else if (order.type === 'SELL' && currentPrice >= order.targetPrice) {
+            try {
+                WalletStore.executeTrade('SELL', order.symbol, order.quantity, currentPrice);
+                AudioFX.playAlert();
+                showToast(`🎯 LIMIT SELL EXECUTED! Sold ${order.quantity} ${cleanSymbolStr(order.symbol)} @ $${currentPrice.toFixed(2)}`, 'success');
+                executed = true;
+            } catch (err) {
+                showToast(`Limit Sell Failed: ${err.message}`, 'error');
+            }
+        }
+
+        if (!executed) remaining.push(order);
+    });
+
+    if (remaining.length !== orders.length) {
+        WalletStore.data.pendingOrders = remaining;
+        WalletStore.save();
+        renderPendingOrdersTable();
+        renderPortfolioTable();
+        renderHistoryTable();
+        updateHeaderBalance();
+    }
+}
+
+// -------------------------------------------------------------
+// LEVEL-2 LIVE ORDER BOOK WIDGET
+// -------------------------------------------------------------
+function renderLevel2OrderBook(symbol, currentPrice) {
+    const asksEl = document.getElementById('orderBookAsks');
+    const bidsEl = document.getElementById('orderBookBids');
+    const spreadEl = document.getElementById('orderBookSpread');
+
+    if (!asksEl || !bidsEl || !spreadEl) return;
+
+    let asksHtml = '';
+    let bidsHtml = '';
+
+    for (let i = 5; i >= 1; i--) {
+        const askPrice = currentPrice * (1 + (i * 0.0008));
+        const askSize = (Math.random() * 2.5 + 0.1).toFixed(2);
+        asksHtml += `
+            <div class="flex justify-between items-center px-1.5 py-0.5 hover:bg-red-950/40 rounded transition-colors">
+                <span>$${askPrice.toFixed(2)}</span>
+                <span class="text-gray-300 font-medium">${askSize}</span>
+            </div>
+        `;
+    }
+
+    for (let i = 1; i <= 5; i++) {
+        const bidPrice = currentPrice * (1 - (i * 0.0008));
+        const bidSize = (Math.random() * 2.8 + 0.2).toFixed(2);
+        bidsHtml += `
+            <div class="flex justify-between items-center px-1.5 py-0.5 hover:bg-green-950/40 rounded transition-colors">
+                <span>$${bidPrice.toFixed(2)}</span>
+                <span class="text-gray-300 font-medium">${bidSize}</span>
+            </div>
+        `;
+    }
+
+    const spreadPct = (0.0016 * 100).toFixed(2);
+    spreadEl.textContent = `$${currentPrice.toFixed(2)} (Spread: ${spreadPct}%)`;
+    asksEl.innerHTML = asksHtml;
+    bidsEl.innerHTML = bidsHtml;
+}
+
+// -------------------------------------------------------------
+// HIGH-FIDELITY MAIN CHART ENGINE (DUAL ENGINE: LIGHTWEIGHT + CHART.JS FALLBACK)
+// -------------------------------------------------------------
+function generateHistoricalChartData(symbol, currentPrice, timeframe) {
+    const config = TIMEFRAME_CONFIGS[timeframe] || TIMEFRAME_CONFIGS['1D'];
+    const candleData = [];
+    const volumeData = [];
+    const smaData = [];
+    const labels = [];
+    const linePrices = [];
+    const closePrices = [];
+
+    const now = new Date();
+    let basePrice = currentPrice * 0.94;
+
+    for (let i = config.count - 1; i >= 0; i--) {
+        let timeVal;
+        let labelStr;
+
+        if (config.isIntraday) {
+            const sec = Math.floor(now.getTime() / 1000) - (i * 300);
+            timeVal = sec;
+            labelStr = new Date(sec * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            const d = new Date(now);
+            d.setDate(d.getDate() - (i * config.stepDays));
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            timeVal = `${yyyy}-${mm}-${dd}`;
+            labelStr = `${mm}/${dd}`;
+        }
+
+        const seed = (i * 17 + symbol.charCodeAt(0)) % 100;
+        const change = (Math.sin(seed / 5) + (Math.random() - 0.48)) * (currentPrice * 0.015);
+        const open = basePrice;
+        const close = Math.max(0.01, open + change);
+        const high = Math.max(open, close) + (Math.random() * currentPrice * 0.004);
+        const low = Math.min(open, close) - (Math.random() * currentPrice * 0.004);
+        basePrice = close;
+
+        candleData.push({ time: timeVal, open, high, low, close });
+        volumeData.push({
+            time: timeVal,
+            value: Math.floor(Math.random() * 8000 + 1000),
+            color: close >= open ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'
+        });
+
+        labels.push(labelStr);
+        linePrices.push(close);
+
+        closePrices.push(close);
+        if (closePrices.length >= 20) {
+            const sum = closePrices.slice(-20).reduce((a, b) => a + b, 0);
+            smaData.push({ time: timeVal, value: sum / 20 });
+        }
+    }
+
+    // Set final bar close to current exact market price
+    candleData[candleData.length - 1].close = currentPrice;
+    linePrices[linePrices.length - 1] = currentPrice;
+
+    return { candleData, volumeData, smaData, labels, linePrices };
+}
+
+function renderChartJSFallback(symbol, currentPrice, dataObj) {
+    const tvContainer = document.getElementById('tvChartContainer');
+    const canvas = document.getElementById('mainChartCanvas');
+    if (!canvas) return;
+
+    if (tvContainer) tvContainer.classList.add('hidden');
+    canvas.classList.remove('hidden');
+
+    const ctx = canvas.getContext('2d');
+    if (chartJsMainInstance) {
+        chartJsMainInstance.destroy();
+    }
+
+    const isPositive = dataObj.linePrices[dataObj.linePrices.length - 1] >= dataObj.linePrices[0];
+    const lineColor = isPositive ? '#0ECB81' : '#F6465D';
+    const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+    gradient.addColorStop(0, isPositive ? 'rgba(14, 203, 129, 0.35)' : 'rgba(246, 70, 93, 0.35)');
+    gradient.addColorStop(1, 'rgba(11, 14, 17, 0.0)');
+
+    // Compute SMA 20 for Chart.js
+    const smaValues = [];
+    for (let i = 0; i < dataObj.linePrices.length; i++) {
+        if (i < 20) {
+            smaValues.push(null);
+        } else {
+            const slice = dataObj.linePrices.slice(i - 20, i);
+            const avg = slice.reduce((a, b) => a + b, 0) / 20;
+            smaValues.push(avg);
+        }
+    }
+
+    const datasets = [
+        {
+            label: `${cleanSymbolStr(symbol)} Price (USD)`,
+            data: dataObj.linePrices,
+            borderColor: lineColor,
+            borderWidth: 2,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0,
+            yAxisID: 'y'
+        }
+    ];
+
+    if (showSmaIndicator) {
+        datasets.push({
+            label: 'SMA 20',
+            data: smaValues,
+            borderColor: '#F0B90B',
+            borderWidth: 1.5,
+            fill: false,
+            tension: 0.2,
+            pointRadius: 0,
+            yAxisID: 'y'
         });
     }
 
-    // Listen for scroll events
-    const mainPanel = document.querySelector('main');
-    mainPanel.addEventListener('scroll', updateActiveLink);
-    updateActiveLink(); // Initial check
-});
-
-// Tab Functionality
-const tabs = document.querySelectorAll('.tab-button');
-tabs.forEach(tab => {
-    tab.addEventListener('click', function() {
-        tabs.forEach(t => t.classList.remove('tab-active'));
-        this.classList.add('tab-active');
+    chartJsMainInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dataObj.labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#848E9C', font: { size: 11 } }
+                },
+                tooltip: {
+                    backgroundColor: '#1E2329',
+                    titleColor: '#EAECEF',
+                    bodyColor: '#0ECB81',
+                    borderColor: '#2B313A',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(42, 45, 53, 0.4)' },
+                    ticks: { color: '#848E9C', maxTicksLimit: 10 }
+                },
+                y: {
+                    grid: { color: 'rgba(42, 45, 53, 0.4)' },
+                    ticks: { color: '#848E9C' }
+                }
+            }
+        }
     });
-});
+}
 
-// Mini Charts
-function createMiniChart(id, color, prices) {
-    const ctx = document.getElementById(id).getContext('2d');
-    const gradient = ctx.createLinearGradient(0, 0, 0, 70);
-    const isPositive = prices[prices.length - 1] > prices[0];
-    gradient.addColorStop(0, isPositive ? 'rgba(14, 203, 129, 0.2)' : 'rgba(246, 70, 93, 0.2)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+function renderTradingViewChart(symbol, currentPrice) {
+    const tvContainer = document.getElementById('tvChartContainer');
+    const canvas = document.getElementById('mainChartCanvas');
+    if (!tvContainer) return;
+
+    const dataObj = generateHistoricalChartData(symbol, currentPrice, currentTimeframe);
+
+    // Try Lightweight Charts rendering
+    let lwSuccess = false;
+    if (window.LightweightCharts) {
+        try {
+            if (canvas) canvas.classList.add('hidden');
+            tvContainer.classList.remove('hidden');
+
+            if (tvChart) {
+                tvContainer.innerHTML = '';
+                tvChart = null;
+            }
+
+            const width = tvContainer.clientWidth || tvContainer.parentElement.clientWidth || 800;
+            const height = 384;
+
+            tvChart = LightweightCharts.createChart(tvContainer, {
+                width: width,
+                height: height,
+                layout: {
+                    background: { type: 'solid', color: '#0B0E11' },
+                    textColor: '#848E9C'
+                },
+                grid: {
+                    vertLines: { color: 'rgba(42, 45, 53, 0.4)' },
+                    horzLines: { color: 'rgba(42, 45, 53, 0.4)' }
+                },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                rightPriceScale: { borderColor: '#2A2D35', autoScale: true },
+                timeScale: { borderColor: '#2A2D35', timeVisible: true }
+            });
+
+            candlestickSeries = tvChart.addCandlestickSeries({
+                upColor: '#0ECB81',
+                downColor: '#F6465D',
+                borderVisible: false,
+                wickUpColor: '#0ECB81',
+                wickDownColor: '#F6465D'
+            });
+
+            volumeSeries = tvChart.addHistogramSeries({
+                color: '#26a69a',
+                priceScaleId: 'volume_scale'
+            });
+
+            tvChart.priceScale('volume_scale').applyOptions({
+                scaleMargins: { top: 0.8, bottom: 0 }
+            });
+
+            smaSeries = tvChart.addLineSeries({
+                color: '#F0B90B',
+                lineWidth: 1.5,
+                title: 'SMA 20'
+            });
+
+            candlestickSeries.setData(dataObj.candleData);
+            volumeSeries.setData(dataObj.volumeData);
+            if (showSmaIndicator && smaSeries && dataObj.smaData.length > 0) {
+                smaSeries.setData(dataObj.smaData);
+            }
+
+            currentCandleData = dataObj.candleData[dataObj.candleData.length - 1];
+            tvChart.timeScale().fitContent();
+
+            setTimeout(() => {
+                if (tvChart && tvContainer) {
+                    tvChart.applyOptions({ width: tvContainer.clientWidth || 800, height: 384 });
+                    tvChart.timeScale().fitContent();
+                }
+            }, 100);
+
+            lwSuccess = true;
+        } catch (err) {
+            console.warn('LightweightCharts fallback triggered:', err);
+            lwSuccess = false;
+        }
+    }
+
+    // High-performance Chart.js Fallback if Lightweight Charts fails
+    if (!lwSuccess) {
+        renderChartJSFallback(symbol, currentPrice, dataObj);
+    }
+}
+
+function updateTradingViewLiveTick(newPrice) {
+    if (candlestickSeries && currentCandleData) {
+        try {
+            currentCandleData.high = Math.max(currentCandleData.high, newPrice);
+            currentCandleData.low = Math.min(currentCandleData.low, newPrice);
+            currentCandleData.close = newPrice;
+            candlestickSeries.update(currentCandleData);
+
+            if (volumeSeries) {
+                volumeSeries.update({
+                    time: currentCandleData.time,
+                    value: Math.floor(Math.random() * 5000 + 1000),
+                    color: currentCandleData.close >= currentCandleData.open ? 'rgba(14, 203, 129, 0.4)' : 'rgba(246, 70, 93, 0.4)'
+                });
+            }
+        } catch (e) {
+            // Live tick update fallback
+        }
+    }
+
+    if (chartJsMainInstance) {
+        const dataset = chartJsMainInstance.data.datasets[0];
+        if (dataset && dataset.data.length > 0) {
+            dataset.data[dataset.data.length - 1] = newPrice;
+            chartJsMainInstance.update('none');
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// UNIQUE REAL-TIME MINI SPARKLINE CHARTS
+// -------------------------------------------------------------
+function generateUniqueHistoricalPoints(symbol, currentPrice, percentChange) {
+    const points = [];
+    let price = currentPrice * (1 - (percentChange / 100));
+    const seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     
-    return new Chart(ctx, {
+    for (let i = 0; i < 14; i++) {
+        points.push(price);
+        const noise = (Math.sin(seed + i * 1.7) * 0.4 + (Math.random() - 0.48)) * (currentPrice * 0.008);
+        const step = (currentPrice * (percentChange / 100)) / 14;
+        price = Math.max(0.0001, price + step + noise);
+    }
+    points.push(currentPrice);
+    return points;
+}
+
+function createStockCardHTML(item) {
+    const symbol = cleanSymbolStr(item.symbol);
+    return `
+        <div class="stock-card bg-darker rounded-lg p-4 border border-gray-800 hover:border-accent/50 transition-all cursor-pointer" data-symbol="${item.symbol}" onclick="selectStock('${item.symbol}')">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-accent font-bold text-sm">
+                        ${symbol[0]}
+                    </div>
+                    <div>
+                        <div class="font-bold text-white text-base">${symbol}</div>
+                        <div class="text-xs text-gray-400 truncate max-w-[120px]">${item.name}</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div id="price-${symbol}" class="font-bold text-lg text-white">--</div>
+                    <div id="change-${symbol}" class="text-xs">--</div>
+                </div>
+            </div>
+            <div class="h-14 w-full">
+                <canvas id="mini-chart-${symbol}"></canvas>
+            </div>
+        </div>
+    `;
+}
+
+function updateDetailDisplay(symbol, data) {
+    const displaySymbol = cleanSymbolStr(symbol);
+    const formattedPrice = formatPrice(data.c, currentMarket);
+    const isPositive = data.dp >= 0;
+    const prefix = (currentMarket === 'indices' || currentMarket === 'forex') ? '' : '$';
+    const formattedChange = `${isPositive ? '+' : ''}${data.dp.toFixed(2)}% (${prefix}${Math.abs(data.d).toFixed(2)})`;
+
+    const detailPrice = document.getElementById('stockPrice');
+    const detailChange = document.getElementById('stockChange');
+    if (detailPrice) detailPrice.textContent = formattedPrice;
+    if (detailChange) {
+        detailChange.textContent = formattedChange;
+        detailChange.className = `text-sm ${isPositive ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold'}`;
+    }
+
+    const buyPriceInput = document.getElementById('buyPriceInput');
+    const sellPriceInput = document.getElementById('sellPriceInput');
+    if (buyPriceInput) buyPriceInput.value = data.c.toFixed(2);
+    if (sellPriceInput) sellPriceInput.value = data.c.toFixed(2);
+
+    renderLevel2OrderBook(symbol, data.c);
+    updateTradingViewLiveTick(data.c);
+    recalculateTradeTotals();
+}
+
+async function updateSinglePriceDisplay(item) {
+    const data = await fetchMarketData(item.symbol);
+    if (!data) return;
+
+    const displaySymbol = cleanSymbolStr(item.symbol);
+    const priceEl = document.getElementById(`price-${displaySymbol}`);
+    const changeEl = document.getElementById(`change-${displaySymbol}`);
+
+    if (!priceEl || !changeEl) return;
+
+    const formattedPrice = formatPrice(data.c, currentMarket);
+    const isPositive = data.dp >= 0;
+    const prefix = (currentMarket === 'indices' || currentMarket === 'forex') ? '' : '$';
+    const formattedChange = `${isPositive ? '+' : ''}${data.dp.toFixed(2)}% (${prefix}${Math.abs(data.d).toFixed(2)})`;
+
+    const prevPrice = previousPrices[displaySymbol];
+    if (prevPrice !== undefined && prevPrice !== data.c) {
+        priceEl.classList.remove('price-flash-up', 'price-flash-down');
+        void priceEl.offsetWidth;
+        priceEl.classList.add(data.c > prevPrice ? 'price-flash-up' : 'price-flash-down');
+    }
+    previousPrices[displaySymbol] = data.c;
+
+    priceEl.textContent = formattedPrice;
+    changeEl.textContent = formattedChange;
+    changeEl.className = `text-xs ${isPositive ? 'text-green-500 font-medium' : 'text-red-500 font-medium'}`;
+
+    updateMiniChartLive(displaySymbol, data.c, isPositive, data.dp);
+
+    if (cleanSymbolStr(selectedSymbol) === displaySymbol) {
+        updateDetailDisplay(item.symbol, data);
+    }
+}
+
+function updateMiniChartLive(displaySymbol, newPrice, isPositive, percentChange = 0.5) {
+    if (!miniChartPrices[displaySymbol]) {
+        miniChartPrices[displaySymbol] = generateUniqueHistoricalPoints(displaySymbol, newPrice, percentChange);
+    } else {
+        miniChartPrices[displaySymbol].push(newPrice);
+        if (miniChartPrices[displaySymbol].length > 15) {
+            miniChartPrices[displaySymbol].shift();
+        }
+    }
+    renderMiniChart(`mini-chart-${displaySymbol}`, miniChartPrices[displaySymbol], isPositive);
+}
+
+async function updateAllPrices() {
+    const filteredSymbols = currentSymbols.filter(i => {
+        if (!searchQuery) return true;
+        const query = searchQuery.toLowerCase();
+        return i.symbol.toLowerCase().includes(query) || i.name.toLowerCase().includes(query);
+    });
+
+    for (const item of filteredSymbols) {
+        await updateSinglePriceDisplay(item);
+    }
+    await renderPortfolioTable();
+    renderPendingOrdersTable();
+    updateHeaderBalance();
+    checkPendingLimitOrders();
+    checkStopLossTakeProfit();
+}
+
+function updateHeaderBalance() {
+    const cashEl = document.getElementById('headerBalance');
+    if (cashEl) {
+        cashEl.textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+}
+
+async function selectStock(symbol) {
+    selectedSymbol = symbol;
+    const cleanSym = cleanSymbolStr(symbol);
+    
+    const detailSection = document.getElementById('stockDetail');
+    if (detailSection) detailSection.classList.remove('hidden');
+
+    let item = null;
+    Object.values(MARKET_DATA).forEach(cat => {
+        const found = cat.find(i => i.symbol === symbol);
+        if (found) item = found;
+    });
+    if (!item) item = { symbol: cleanSym, name: cleanSym };
+
+    document.getElementById('stockSymbolIcon').textContent = cleanSym[0];
+    document.getElementById('stockSymbol').textContent = cleanSym;
+    document.getElementById('stockName').textContent = item.name;
+
+    document.getElementById('buyHeaderSymbol').textContent = cleanSym;
+    document.getElementById('sellHeaderSymbol').textContent = cleanSym;
+    document.getElementById('buyAssetSymbolLabel').textContent = cleanSym;
+    document.getElementById('sellAssetSymbolLabel').textContent = cleanSym;
+
+    const pos = WalletStore.getPosition(symbol);
+    document.getElementById('buyAvailableCash').textContent = `$${WalletStore.getCash().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('sellAvailableQty').textContent = `${pos.quantity} ${cleanSym}`;
+
+    const data = await fetchMarketData(symbol);
+    if (data) {
+        updateDetailDisplay(symbol, data);
+    }
+
+    renderTradingViewChart(symbol, data ? data.c : 150.0);
+}
+
+function renderMiniChart(id, prices, isPositive) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+
+    if (miniChartInstances[id]) {
+        miniChartInstances[id].destroy();
+    }
+
+    const color = isPositive ? '#0ECB81' : '#F6465D';
+    miniChartInstances[id] = new Chart(ctx, {
         type: 'line',
         data: {
             labels: Array(prices.length).fill(''),
             datasets: [{
                 data: prices,
                 borderColor: color,
-                borderWidth: 2,
-                backgroundColor: gradient,
-                fill: true,
-                tension: 0.4,
+                borderWidth: 1.8,
+                fill: false,
+                tension: 0.35,
                 pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: {
+                x: { display: false },
+                y: { display: false, grace: '5%' }
+            }
+        }
+    });
+}
+
+async function initializeMiniCharts() {
+    for (const item of currentSymbols) {
+        const cleanSym = cleanSymbolStr(item.symbol);
+        const data = await fetchMarketData(item.symbol);
+        if (data) {
+            miniChartPrices[cleanSym] = generateUniqueHistoricalPoints(cleanSym, data.c, data.dp || 0.5);
+            renderMiniChart(`mini-chart-${cleanSym}`, miniChartPrices[cleanSym], data.dp >= 0);
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// PORTFOLIO ASSET ALLOCATION DONUT CHART & TABLE
+// -------------------------------------------------------------
+function renderAllocationChart(cashVal, stocksVal, cryptoVal, forexVal) {
+    const ctx = document.getElementById('allocationChart')?.getContext('2d');
+    if (!ctx) return;
+
+    if (allocationChartInstance) {
+        allocationChartInstance.destroy();
+    }
+
+    allocationChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Cash', 'Stocks', 'Crypto', 'Forex'],
+            datasets: [{
+                data: [cashVal, stocksVal, cryptoVal, forexVal],
+                backgroundColor: ['#F0B90B', '#0ECB81', '#3B82F6', '#8B5CF6'],
+                borderWidth: 0,
+                hoverOffset: 4
             }]
         },
         options: {
@@ -121,579 +1164,535 @@ function createMiniChart(id, color, prices) {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    display: false
+                    position: 'bottom',
+                    labels: { color: '#9CA3AF', font: { size: 10 }, boxWidth: 12 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return `${ctx.label}: $${ctx.parsed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        }
+                    }
                 }
             },
-            scales: {
-                x: {
-                    display: false
-                },
-                y: {
-                    display: false
-                }
-            }
+            cutout: '70%'
         }
     });
 }
 
-// Initialize mini charts with real data
-async function initializeMiniCharts() {
-    for (let i = 0; i < STOCKS.length; i++) {
-        const data = await fetchCandleData(STOCKS[i], '5', 20);
-        if (data && data.s === 'ok') {
-            const isPositive = data.c[data.c.length - 1] > data.o[0];
-            const color = isPositive ? '#0ECB81' : '#F6465D';
-            createMiniChart(`miniChart${i + 1}`, color, data.c);
-        }
-    }
-}
-
-initializeMiniCharts();
-
-// Main Chart
-const mainCtx = document.getElementById('mainChart').getContext('2d');
-const mainGradient = mainCtx.createLinearGradient(0, 0, 0, 400);
-mainGradient.addColorStop(0, 'rgba(14, 203, 129, 0.2)');
-mainGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-const mainChart = new Chart(mainCtx, {
-    type: 'line',
-    data: {
-        labels: Array(30).fill().map((_, i) => {
-            const date = new Date();
-            date.setDate(date.getDate() - (30 - i));
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }),
-        datasets: [{
-            data: Array(30).fill().map(() => Math.random() * 30 + 150),
-            borderColor: '#0ECB81',
-            borderWidth: 2,
-            backgroundColor: mainGradient,
-            fill: true,
-            tension: 0.4,
-            pointRadius: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                mode: 'index',
-                intersect: false,
-                backgroundColor: '#1E2329',
-                titleColor: '#EAECEF',
-                bodyColor: '#EAECEF',
-                borderColor: '#474D57',
-                borderWidth: 1,
-                displayColors: false,
-                callbacks: {
-                    label: function(context) {
-                        return '$' + context.parsed.y.toFixed(2);
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                grid: {
-                    display: false,
-                    drawBorder: false
-                },
-                ticks: {
-                    color: '#848E9C'
-                }
-            },
-            y: {
-                grid: {
-                    color: '#2A3139',
-                    drawBorder: false
-                },
-                ticks: {
-                    color: '#848E9C'
-                }
-            }
-        },
-        interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
-        }
-    }
-});
-
-// Portfolio data structure
-const portfolio = {
-    AAPL: { quantity: 10 },
-    MSFT: { quantity: 15 },
-    GOOGL: { quantity: 5 },
-    AMZN: { quantity: 8 }
-};
-
-// Function to update portfolio table
-async function updatePortfolioTable() {
+async function renderPortfolioTable() {
     const tableBody = document.querySelector('#portfolioTable tbody');
     if (!tableBody) return;
 
-    let portfolioHTML = '';
-    for (const [symbol, holding] of Object.entries(portfolio)) {
-        const stockData = await fetchStockData(symbol);
-        if (stockData) {
-            const totalValue = stockData.c * holding.quantity;
-            const change = (stockData.c - stockData.pc) * holding.quantity;
-            const changePercent = ((stockData.c - stockData.pc) / stockData.pc) * 100;
-            
-            portfolioHTML += `
-                <tr>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
-                                <span>${symbol[0]}</span>
-                            </div>
-                            <div class="ml-4">
-                                <div class="font-medium">${symbol}</div>
-                                <div class="text-sm text-gray-400">Stock</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        ${holding.quantity}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        $${stockData.pc.toFixed(2)}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        $${stockData.c.toFixed(2)}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right ${change >= 0 ? 'positive' : 'negative'}">
-                        ${change >= 0 ? '+' : ''}$${change.toFixed(2)} (${changePercent.toFixed(2)}%)
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right">
-                        <button class="text-red-500 hover:text-red-400 text-sm font-medium">Sell</button>
-                    </td>
-                </tr>
-            `;
-        }
+    let html = '';
+    let totalPortfolioVal = WalletStore.getCash();
+    let stocksVal = 0, cryptoVal = 0, forexVal = 0;
+
+    const positions = WalletStore.data.positions;
+    const entries = Object.entries(positions);
+
+    if (entries.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                    No active asset holdings. Select a market asset above to trade!
+                </td>
+            </tr>
+        `;
+        document.getElementById('totalPortfolioValue').textContent = `$${totalPortfolioVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        renderAllocationChart(totalPortfolioVal, 0, 0, 0);
+        return;
     }
-    tableBody.innerHTML = portfolioHTML;
+
+    for (const [symbol, holding] of entries) {
+        if (holding.quantity <= 0) continue;
+
+        const cleanSym = cleanSymbolStr(symbol);
+        const data = await fetchMarketData(symbol);
+        const currentPrice = data ? data.c : holding.avgCost;
+        const totalVal = currentPrice * holding.quantity;
+        totalPortfolioVal += totalVal;
+
+        if (symbol.includes('BINANCE:')) cryptoVal += totalVal;
+        else if (['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD'].includes(symbol)) forexVal += totalVal;
+        else stocksVal += totalVal;
+
+        const unrealizedPnL = (currentPrice - holding.avgCost) * holding.quantity;
+        const pnlPercent = ((currentPrice - holding.avgCost) / holding.avgCost) * 100;
+        const isPos = unrealizedPnL >= 0;
+
+        const slText = holding.stopLoss ? `$${holding.stopLoss.toFixed(2)}` : 'None';
+        const tpText = holding.takeProfit ? `$${holding.takeProfit.toFixed(2)}` : 'None';
+
+        html += `
+            <tr class="hover:bg-gray-800/40 transition-colors">
+                <td class="px-4 py-3.5 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center font-bold text-accent text-xs mr-2.5">
+                            ${cleanSym[0]}
+                        </div>
+                        <div>
+                            <div class="font-bold text-white text-sm">${cleanSym}</div>
+                            <div class="text-[10px] text-gray-400">SL: <span class="text-red-400">${slText}</span> | TP: <span class="text-green-400">${tpText}</span></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-right font-medium text-white text-sm">
+                    ${holding.quantity}
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-right text-gray-300 text-sm">
+                    $${holding.avgCost.toFixed(2)}
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-right font-bold text-white text-sm">
+                    $${currentPrice.toFixed(2)}
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-right font-semibold text-sm ${isPos ? 'text-green-500' : 'text-red-500'}">
+                    ${isPos ? '+' : ''}$${unrealizedPnL.toFixed(2)} (${pnlPercent.toFixed(2)}%)
+                </td>
+                <td class="px-4 py-3.5 whitespace-nowrap text-right space-x-1">
+                    <button onclick="selectStock('${symbol}'); document.getElementById('stockDetail').scrollIntoView({behavior: 'smooth'});" class="text-xs bg-gray-800 hover:bg-gray-700 text-accent px-2.5 py-1 rounded border border-gray-700 transition-all">
+                        Trade
+                    </button>
+                    <button onclick="closePositionQuick('${symbol}', ${holding.quantity}, ${currentPrice})" class="text-xs bg-red-900/60 hover:bg-red-800 text-red-300 px-2 py-1 rounded border border-red-700/50 transition-all">
+                        Sell All
+                    </button>
+                </td>
+            </tr>
+        `;
+    }
+
+    tableBody.innerHTML = html;
+    document.getElementById('totalPortfolioValue').textContent = `$${totalPortfolioVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    renderAllocationChart(WalletStore.getCash(), stocksVal, cryptoVal, forexVal);
 }
 
-// Create stock card HTML
-function createStockCard(stock) {
-    return `
-        <div class="bg-darker rounded-lg overflow-hidden hover:ring-1 hover:ring-yellow-400 cursor-pointer transition-all" onclick="selectStock('${stock.symbol}')">
-            <div class="p-4 border-b border-gray-800">
-                <div class="flex items-center space-x-4">
-                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
-                        <span class="text-lg">${stock.symbol[0]}</span>
-                    </div>
-                    <div>
-                        <div class="font-bold text-lg text-white">${stock.symbol}</div>
-                        <div class="text-sm text-gray-400">${stock.name}</div>
-                    </div>
-                    <div class="ml-auto text-right">
-                        <div class="font-bold text-xl text-white" id="price-${stock.symbol}">Loading...</div>
-                        <div class="text-sm" id="change-${stock.symbol}">--</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+function closePositionQuick(symbol, quantity, price) {
+    try {
+        WalletStore.executeTrade('SELL', symbol, quantity, price);
+        showToast(`Closed full position of ${quantity} ${cleanSymbolStr(symbol)} @ $${price.toFixed(2)}`, 'success');
+        if (selectedSymbol === symbol) selectStock(symbol);
+        renderPortfolioTable();
+        renderHistoryTable();
+        updateHeaderBalance();
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
 }
 
-// Initialize market cards
-function initializeMarketCards(market = 'stocks') {
-    const cardsContainer = document.getElementById('stockCards');
-    currentMarket = market;
-    currentSymbols = MARKET_DATA[market];
-    
-    // Update cards
-    cardsContainer.innerHTML = currentSymbols.map(item => createStockCard(item)).join('');
-    updateAllPrices();
+function renderPendingOrdersTable() {
+    const tableBody = document.getElementById('pendingOrdersTableBody');
+    const section = document.getElementById('pendingOrdersSection');
+    if (!tableBody || !section) return;
 
-    // Update button states
-    document.querySelectorAll('.market-btn').forEach(btn => {
-        if (btn.dataset.market === market) {
-            btn.className = 'market-btn px-3 py-1 text-sm bg-accent text-dark rounded-lg hover:opacity-90 transition-all';
+    const orders = WalletStore.data.pendingOrders;
+    if (!orders || orders.length === 0) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    section.classList.remove('hidden');
+    tableBody.innerHTML = orders.map(ord => `
+        <tr class="hover:bg-gray-800/40 transition-colors">
+            <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-400">
+                ${new Date(ord.timestamp).toLocaleTimeString()}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap font-bold text-white text-sm">
+                ${cleanSymbolStr(ord.symbol)}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-xs">
+                <span class="px-2 py-0.5 rounded font-bold ${ord.type === 'BUY' ? 'bg-green-900/60 text-green-400 border border-green-700/50' : 'bg-red-900/60 text-red-400 border border-red-700/50'}">
+                    LIMIT ${ord.type}
+                </span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-right font-medium text-white text-sm">
+                ${ord.quantity}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-right font-bold text-yellow-400 text-sm">
+                $${ord.targetPrice.toFixed(2)}
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+                <button onclick="cancelPendingOrder('${ord.id}')" class="text-xs bg-gray-800 hover:bg-gray-700 text-red-400 px-2.5 py-1 rounded border border-gray-700 transition-all">
+                    Cancel
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function cancelPendingOrder(orderId) {
+    WalletStore.cancelPendingOrder(orderId);
+    showToast('Limit order cancelled.', 'info');
+    renderPendingOrdersTable();
+}
+
+function renderHistoryTable() {
+    const tableBody = document.getElementById('historyTableBody');
+    if (!tableBody) return;
+
+    const history = WalletStore.data.tradeHistory;
+    if (!history || history.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-6 text-center text-gray-500">No trade transactions recorded yet.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = history.map(item => `
+        <tr class="hover:bg-gray-800/40 transition-colors">
+            <td class="px-6 py-3.5 whitespace-nowrap text-xs text-gray-400">
+                ${new Date(item.timestamp).toLocaleString()}
+            </td>
+            <td class="px-6 py-3.5 whitespace-nowrap font-bold text-white">
+                ${cleanSymbolStr(item.symbol)}
+            </td>
+            <td class="px-6 py-3.5 whitespace-nowrap text-xs">
+                <span class="px-2 py-0.5 rounded font-bold ${item.type === 'BUY' ? 'bg-green-900/60 text-green-400 border border-green-700/50' : 'bg-red-900/60 text-red-400 border border-red-700/50'}">
+                    ${item.type}
+                </span>
+            </td>
+            <td class="px-6 py-3.5 whitespace-nowrap text-right font-medium text-white">
+                ${item.quantity}
+            </td>
+            <td class="px-6 py-3.5 whitespace-nowrap text-right text-gray-300">
+                $${item.price.toFixed(2)}
+            </td>
+            <td class="px-6 py-3.5 whitespace-nowrap text-right font-bold text-white">
+                $${item.total.toFixed(2)}
+            </td>
+        </tr>
+    `).join('');
+}
+
+// -------------------------------------------------------------
+// INTERACTIVE TRADE FORMS & EXECUTIONS
+// -------------------------------------------------------------
+function recalculateTradeTotals() {
+    const buyPrice = buyOrderMode === 'LIMIT' 
+        ? parseFloat(document.getElementById('buyLimitPriceInput')?.value || 0)
+        : parseFloat(document.getElementById('buyPriceInput')?.value || 0);
+
+    const buyQty = parseFloat(document.getElementById('buyAmountInput')?.value || 0);
+    const buyTotalEl = document.getElementById('buyTotalInput');
+    if (buyTotalEl) buyTotalEl.value = (buyPrice * buyQty).toFixed(2);
+
+    const sellPrice = sellOrderMode === 'LIMIT'
+        ? parseFloat(document.getElementById('sellLimitPriceInput')?.value || 0)
+        : parseFloat(document.getElementById('sellPriceInput')?.value || 0);
+
+    const sellQty = parseFloat(document.getElementById('sellAmountInput')?.value || 0);
+    const sellTotalEl = document.getElementById('sellTotalInput');
+    if (sellTotalEl) sellTotalEl.value = (sellPrice * sellQty).toFixed(2);
+}
+
+function initializeTradeForms() {
+    const buyTypeMarket = document.getElementById('buyTypeMarket');
+    const buyTypeLimit = document.getElementById('buyTypeLimit');
+    const buyLimitContainer = document.getElementById('buyLimitContainer');
+
+    const sellTypeMarket = document.getElementById('sellTypeMarket');
+    const sellTypeLimit = document.getElementById('sellTypeLimit');
+    const sellLimitContainer = document.getElementById('sellLimitContainer');
+
+    if (buyTypeMarket && buyTypeLimit) {
+        buyTypeMarket.addEventListener('click', () => {
+            buyOrderMode = 'MARKET';
+            buyTypeMarket.className = 'px-2.5 py-1 rounded bg-green-600 text-white font-semibold transition-all';
+            buyTypeLimit.className = 'px-2.5 py-1 rounded text-gray-400 hover:text-white transition-all';
+            buyLimitContainer.classList.add('hidden');
+            recalculateTradeTotals();
+        });
+        buyTypeLimit.addEventListener('click', () => {
+            buyOrderMode = 'LIMIT';
+            buyTypeLimit.className = 'px-2.5 py-1 rounded bg-yellow-600 text-white font-semibold transition-all';
+            buyTypeMarket.className = 'px-2.5 py-1 rounded text-gray-400 hover:text-white transition-all';
+            buyLimitContainer.classList.remove('hidden');
+            recalculateTradeTotals();
+        });
+    }
+
+    if (sellTypeMarket && sellTypeLimit) {
+        sellTypeMarket.addEventListener('click', () => {
+            sellOrderMode = 'MARKET';
+            sellTypeMarket.className = 'px-2.5 py-1 rounded bg-red-600 text-white font-semibold transition-all';
+            sellTypeLimit.className = 'px-2.5 py-1 rounded text-gray-400 hover:text-white transition-all';
+            sellLimitContainer.classList.add('hidden');
+            recalculateTradeTotals();
+        });
+        sellTypeLimit.addEventListener('click', () => {
+            sellOrderMode = 'LIMIT';
+            sellTypeLimit.className = 'px-2.5 py-1 rounded bg-yellow-600 text-white font-semibold transition-all';
+            sellTypeMarket.className = 'px-2.5 py-1 rounded text-gray-400 hover:text-white transition-all';
+            sellLimitContainer.classList.remove('hidden');
+            recalculateTradeTotals();
+        });
+    }
+
+    document.getElementById('buyAmountInput')?.addEventListener('input', recalculateTradeTotals);
+    document.getElementById('buyLimitPriceInput')?.addEventListener('input', recalculateTradeTotals);
+
+    document.getElementById('sellAmountInput')?.addEventListener('input', recalculateTradeTotals);
+    document.getElementById('sellLimitPriceInput')?.addEventListener('input', recalculateTradeTotals);
+
+    // Buy Execution
+    document.getElementById('buyExecuteBtn')?.addEventListener('click', () => {
+        const qty = parseFloat(document.getElementById('buyAmountInput').value);
+        const currentMarketPrice = parseFloat(document.getElementById('buyPriceInput').value);
+        const limitPrice = parseFloat(document.getElementById('buyLimitPriceInput')?.value || 0);
+
+        const stopLoss = parseFloat(document.getElementById('buyStopLossInput')?.value || 0) || null;
+        const takeProfit = parseFloat(document.getElementById('buyTakeProfitInput')?.value || 0) || null;
+
+        if (isNaN(qty) || qty <= 0) {
+            showToast('Please enter a valid buy quantity.', 'error');
+            return;
+        }
+
+        if (buyOrderMode === 'MARKET') {
+            try {
+                WalletStore.executeTrade('BUY', selectedSymbol, qty, currentMarketPrice, stopLoss, takeProfit);
+                showToast(`Bought ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${currentMarketPrice.toFixed(2)}`, 'success');
+                document.getElementById('buyAmountInput').value = '';
+                recalculateTradeTotals();
+                selectStock(selectedSymbol);
+                renderPortfolioTable();
+                renderHistoryTable();
+                updateHeaderBalance();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
         } else {
-            btn.className = 'market-btn px-3 py-1 text-sm bg-gray-800 text-gray-400 rounded-lg hover:bg-gray-700 transition-all';
+            if (isNaN(limitPrice) || limitPrice <= 0) {
+                showToast('Please enter a target limit price.', 'error');
+                return;
+            }
+            try {
+                WalletStore.addPendingLimitOrder('BUY', selectedSymbol, qty, limitPrice);
+                showToast(`Limit Buy Order Placed: ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${limitPrice.toFixed(2)}`, 'info');
+                document.getElementById('buyAmountInput').value = '';
+                renderPendingOrdersTable();
+                updateHeaderBalance();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+    });
+
+    // Sell Execution
+    document.getElementById('sellExecuteBtn')?.addEventListener('click', () => {
+        const qty = parseFloat(document.getElementById('sellAmountInput').value);
+        const currentMarketPrice = parseFloat(document.getElementById('sellPriceInput').value);
+        const limitPrice = parseFloat(document.getElementById('sellLimitPriceInput')?.value || 0);
+
+        if (isNaN(qty) || qty <= 0) {
+            showToast('Please enter a valid sell quantity.', 'error');
+            return;
+        }
+
+        if (sellOrderMode === 'MARKET') {
+            try {
+                WalletStore.executeTrade('SELL', selectedSymbol, qty, currentMarketPrice);
+                showToast(`Sold ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${currentMarketPrice.toFixed(2)}`, 'success');
+                document.getElementById('sellAmountInput').value = '';
+                recalculateTradeTotals();
+                selectStock(selectedSymbol);
+                renderPortfolioTable();
+                renderHistoryTable();
+                updateHeaderBalance();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        } else {
+            if (isNaN(limitPrice) || limitPrice <= 0) {
+                showToast('Please enter a target limit price.', 'error');
+                return;
+            }
+            try {
+                WalletStore.addPendingLimitOrder('SELL', selectedSymbol, qty, limitPrice);
+                showToast(`Limit Sell Order Placed: ${qty} ${cleanSymbolStr(selectedSymbol)} @ $${limitPrice.toFixed(2)}`, 'info');
+                document.getElementById('sellAmountInput').value = '';
+                renderPendingOrdersTable();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
         }
     });
 }
 
-// Update price and change for any market type
-async function updatePrice(symbol) {
-    try {
-        const data = await fetchMarketData(symbol);
-        if (!data) return;
+// -------------------------------------------------------------
+// INITIALIZATION & EVENT LISTENERS
+// -------------------------------------------------------------
+function initializeMarketCards(market = 'stocks') {
+    currentMarket = market;
+    currentSymbols = MARKET_DATA[market];
 
-        const displaySymbol = symbol.replace('BINANCE:', '').replace('^', '');
-        const priceElement = document.getElementById(`price-${displaySymbol}`);
-        const changeElement = document.getElementById(`change-${displaySymbol}`);
+    const cardsContainer = document.getElementById('stockCards');
+    if (cardsContainer) {
+        const filtered = currentSymbols.filter(i => {
+            if (!searchQuery) return true;
+            const q = searchQuery.toLowerCase();
+            return i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q);
+        });
 
-        if (!priceElement || !changeElement) {
-            console.error(`Elements not found for symbol ${displaySymbol}`);
-            return;
-        }
-
-        const lastPrice = data.c;
-        const priceChange = data.d;
-        const percentChange = data.dp;
-
-        // Format price based on market type and value
-        if (currentMarket === 'crypto') {
-            const priceStr = lastPrice >= 1000 ? 
-                lastPrice.toFixed(2) : 
-                lastPrice >= 1 ? 
-                    lastPrice.toFixed(4) : 
-                    lastPrice.toFixed(8);
-            priceElement.textContent = `$${priceStr}`;
-        } else if (currentMarket === 'indices') {
-            // No $ symbol for indices
-            priceElement.textContent = lastPrice.toFixed(2);
-        } else {
-            priceElement.textContent = `$${lastPrice.toFixed(2)}`;
-        }
-
-        // Update change display
-        const prefix = currentMarket === 'indices' ? '' : '$';
-        const changeText = `${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(2)}% (${prefix}${Math.abs(priceChange).toFixed(2)})`;
-        changeElement.textContent = changeText;
-        changeElement.className = `text-sm ${percentChange >= 0 ? 'text-green-500' : 'text-red-500'}`;
-
-        // Generate random data for mini chart (since we're using hardcoded prices)
-        const chartData = [];
-        for (let i = 0; i < 20; i++) {
-            const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
-            chartData.push(lastPrice * (1 + randomChange / 100));
-        }
-
-        // Update mini chart
-        const miniChart = document.getElementById(`mini-chart-${displaySymbol}`);
-        if (miniChart) {
-            createMiniChart(`mini-chart-${displaySymbol}`, percentChange >= 0 ? '#0ECB81' : '#F6465D', chartData);
-        }
-    } catch (error) {
-        console.error(`Error updating price for ${symbol}:`, error);
+        cardsContainer.innerHTML = filtered.map(item => createStockCardHTML(item)).join('');
     }
+
+    document.querySelectorAll('.market-btn').forEach(btn => {
+        if (btn.dataset.market === market) {
+            btn.className = 'market-btn px-3 py-1 text-xs sm:text-sm font-semibold bg-accent text-dark rounded-lg transition-all shadow-sm';
+        } else {
+            btn.className = 'market-btn px-3 py-1 text-xs sm:text-sm bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white rounded-lg transition-all';
+        }
+    });
+
+    updateAllPrices();
+    initializeMiniCharts();
 }
 
-// Update all prices for current market type
-async function updateAllPrices() {
-    for (const item of currentSymbols) {
-        await updatePrice(item.symbol);
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Init Wallet & WebSockets
+    WalletStore.init();
+    updateHeaderBalance();
+    initBinanceWebSocket();
+
+    // 2. Audio Interaction Permission Trigger
+    document.body.addEventListener('click', () => AudioFX.init(), { once: true });
+
+    // 3. Mobile Sidebar Navigation Drawer
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebarDrawer = document.getElementById('sidebar-drawer');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+
+    function toggleMobileSidebar() {
+        sidebarDrawer.classList.toggle('-translate-x-full');
+        sidebarBackdrop.classList.toggle('hidden');
     }
-}
 
-// Select stock and update detail view
-async function selectStock(symbol) {
-    try {
-        // Update stock details section
-        const stockDetail = document.getElementById('stockDetail');
-        const displaySymbol = symbol.replace('BINANCE:', '').replace('^', '');
-        
-        // Update active card
-        // Find the stock/crypto/index details
-        const item = MARKET_DATA[currentMarket].find(item => item.symbol === symbol);
-        if (!item) return;
+    if (sidebarToggle) sidebarToggle.addEventListener('click', toggleMobileSidebar);
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', toggleMobileSidebar);
 
-        // Clean symbol for display
-        const cleanSymbol = symbol.replace('BINANCE:', '').replace('^', '');
-
-        // Update stock detail section
-        const detailSection = document.getElementById('stockDetail');
-        detailSection.classList.remove('hidden');
-
-        // Update header info
-        document.getElementById('stockSymbolIcon').textContent = cleanSymbol[0];
-        document.getElementById('stockSymbol').textContent = cleanSymbol;
-        document.getElementById('stockName').textContent = item.name;
-
-        // Format price based on market type
-        const price = data.c;
-        const priceElement = document.getElementById('stockPrice');
-
-        if (currentMarket === 'crypto') {
-            const priceStr = price >= 1000 ? 
-                price.toFixed(2) : 
-                price >= 1 ? 
-                    price.toFixed(4) : 
-                    price.toFixed(8);
-            priceElement.textContent = `$${priceStr}`;
-        } else if (currentMarket === 'indices') {
-            priceElement.textContent = price.toFixed(2);
-        } else {
-            priceElement.textContent = `$${price.toFixed(2)}`;
+    // 4. Timeframe Selector Listener
+    document.getElementById('timeframeSelector')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tf-btn');
+        if (btn && btn.dataset.tf) {
+            currentTimeframe = btn.dataset.tf;
+            document.querySelectorAll('.tf-btn').forEach(b => {
+                if (b.dataset.tf === currentTimeframe) {
+                    b.className = 'tf-btn px-2.5 py-1 rounded bg-accent text-dark font-bold transition-all';
+                } else {
+                    b.className = 'tf-btn px-2.5 py-1 rounded text-gray-400 hover:text-white transition-all';
+                }
+            });
+            selectStock(selectedSymbol);
         }
+    });
 
-        // Update change display
-        const change = data.d;
-        const changePercent = data.dp;
-        const changeElement = document.getElementById('stockChange');
-        const prefix = currentMarket === 'indices' ? '' : '$';
-        changeElement.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}% (${prefix}${Math.abs(change).toFixed(2)})`;
-        changeElement.className = `text-sm ${changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`;
+    // 5. SMA Indicator Toggle
+    const toggleSmaBtn = document.getElementById('toggleSmaBtn');
+    if (toggleSmaBtn) {
+        toggleSmaBtn.addEventListener('click', () => {
+            showSmaIndicator = !showSmaIndicator;
+            toggleSmaBtn.className = `px-2.5 py-1 rounded transition-all font-semibold ${showSmaIndicator ? 'bg-accent text-dark' : 'bg-gray-800 text-gray-300 border border-gray-700'}`;
+            selectStock(selectedSymbol);
+        });
+    }
 
-        // Generate chart data
-        const chartData = [];
-        const times = [];
-        const now = new Date();
-        for (let i = 0; i < 20; i++) {
-            const time = new Date(now - (19 - i) * 15 * 60000); // 15-minute intervals
-            times.push(time);
-            const randomChange = (Math.random() - 0.5) * 2; // Random value between -1 and 1
-            chartData.push(price * (1 + randomChange / 100));
-        }
+    // 6. Search Bar Listener
+    const searchInput = document.getElementById('marketSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            initializeMarketCards(currentMarket);
+        });
+    }
 
-        // Update main chart
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        if (window.mainChart) {
-            window.mainChart.destroy();
-        }
-        window.mainChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: times,
-                datasets: [{
-                    label: cleanSymbol,
-                    data: chartData,
-                    borderColor: changePercent >= 0 ? '#0ECB81' : '#F6465D',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { unit: 'minute' },
-                        grid: { display: false }
-                    },
-                    y: {
-                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
-                    }
+    // 7. Reset Wallet Balance Listener
+    const resetBtn = document.getElementById('resetWalletBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (confirm('Reset your TradeSim simulator wallet back to $100,000 cash?')) {
+                WalletStore.resetWallet();
+                updateHeaderBalance();
+                selectStock(selectedSymbol);
+                renderPortfolioTable();
+                renderPendingOrdersTable();
+                renderHistoryTable();
+                showToast('Wallet balance reset to $100,000.00 cash!', 'success');
+            }
+        });
+    }
+
+    // 8. Export CSV Listener
+    document.getElementById('exportCsvBtn')?.addEventListener('click', exportHistoryToCSV);
+
+    // 9. Scroll Navigation Tracking
+    const mainPanel = document.querySelector('main');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('section[id]');
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('href');
+            const targetSection = document.querySelector(targetId);
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth' });
+                if (window.innerWidth < 768 && sidebarDrawer && !sidebarDrawer.classList.contains('-translate-x-full')) {
+                    toggleMobileSidebar();
                 }
             }
         });
+    });
 
-        // Scroll to detail section
-        detailSection.scrollIntoView({ behavior: 'smooth' });
-    } catch (error) {
-        console.error('Error selecting stock:', error);
-    }
-}
-// Update chart with new data
-async function updateChart(symbol) {
-    try {
-        const endpoint = currentMarket === 'crypto' ? 'crypto/candle' : 'stock/candle';
-        const resolution = currentMarket === 'crypto' ? '1' : 'D';
-        const to = Math.floor(Date.now() / 1000);
-        const from = to - (7 * 24 * 60 * 60); // 7 days of data
+    if (mainPanel) {
+        mainPanel.addEventListener('scroll', () => {
+            const fromTop = mainPanel.scrollTop + 120;
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.offsetHeight;
+                const sectionId = section.getAttribute('id');
+                const correspondingLink = document.querySelector(`.nav-link[href="#${sectionId}"]`);
 
-        const response = await axios.get(
-            `https://finnhub.io/api/v1/${endpoint}?symbol=${symbol}&resolution=${resolution}&from=${from}&to=${to}&token=${FINNHUB_API_KEY}`
-        );
-
-        const candles = response.data;
-        if (candles && candles.c) {
-            const chartData = {
-                labels: candles.t.map(timestamp => {
-                    const date = new Date(timestamp * 1000);
-                    return currentMarket === 'crypto' 
-                        ? date.toLocaleTimeString() 
-                        : date.toLocaleDateString();
-                }),
-                datasets: [{
-                    label: symbol.replace('BINANCE:', '').replace('^', ''),
-                    data: candles.c,
-                    borderColor: '#F0B90B',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false
-                }]
-            };
-
-            if (window.priceChart) {
-                window.priceChart.data = chartData;
-                window.priceChart.update();
-            } else {
-                const ctx = document.getElementById('priceChart').getContext('2d');
-                window.priceChart = new Chart(ctx, {
-                    type: 'line',
-                    data: chartData,
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: MARKET_DATA[currentMarket].find(m => m.symbol === symbol)?.name || symbol,
-                                color: '#F0B90B',
-                                font: {
-                                    size: 16,
-                                    weight: 'bold'
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: false,
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#848E9C'
-                                }
-                            },
-                            y: {
-                                grid: {
-                                    color: '#2A3139',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#848E9C'
-                                }
-                            }
-                        },
-                        interaction: {
-                            mode: 'nearest',
-                            axis: 'x',
-                            intersect: false
-                        }
+                if (fromTop >= sectionTop && fromTop < sectionTop + sectionHeight) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('bg-gray-800', 'text-accent');
+                        link.classList.add('text-gray-400');
+                    });
+                    if (correspondingLink) {
+                        correspondingLink.classList.remove('text-gray-400');
+                        correspondingLink.classList.add('bg-gray-800', 'text-accent');
                     }
-                });
-            }
-        }
-    } catch (error) {
-        console.error('Error updating chart:', error);
+                }
+            });
+        });
     }
-}
 
-// Real-time updates every 10 seconds
-setInterval(updateAllPrices, 1000);
-
-// Fetch real-time market data with hardcoded values for crypto and indices
-async function fetchMarketData(symbol) {
-    try {
-        if (currentMarket === 'crypto') {
-            // Hardcoded crypto prices
-            const cryptoPrices = {
-                'BINANCE:BTCUSDT': { price: 45678.90, change: 2.5 },
-                'BINANCE:ETHUSDT': { price: 3456.78, change: 1.8 },
-                'BINANCE:BNBUSDT': { price: 456.78, change: -0.5 },
-                'BINANCE:ADAUSDT': { price: 1.23, change: 3.2 },
-                'BINANCE:DOGEUSDT': { price: 0.15, change: -1.5 },
-                'BINANCE:XRPUSDT': { price: 0.89, change: 1.2 }
-            };
-
-            const price = cryptoPrices[symbol]?.price || 0;
-            const change = cryptoPrices[symbol]?.change || 0;
-            return {
-                c: price,
-                d: price * (change / 100),
-                dp: change
-            };
-        } else if (currentMarket === 'indices') {
-            // Hardcoded indices prices
-            const indicesPrices = {
-                '^GSPC': { price: 4780.90, change: 0.8 },  // S&P 500
-                '^DJI': { price: 38450.50, change: 0.6 },  // Dow Jones
-                '^IXIC': { price: 15230.80, change: 1.2 }, // NASDAQ
-                '^FTSE': { price: 7890.30, change: -0.3 }, // FTSE 100
-                '^N225': { price: 32560.70, change: 0.9 }, // Nikkei 225
-                '^GDAXI': { price: 16780.40, change: 0.4 }  // DAX
-            };
-
-            const price = indicesPrices[symbol]?.price || 0;
-            const change = indicesPrices[symbol]?.change || 0;
-            return {
-                c: price,
-                d: price * (change / 100),
-                dp: change
-            };
-        } else {
-            // Real Finnhub data for stocks
-            const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`);
-            return response.data;
-        }
-    } catch (error) {
-        console.error(`Error fetching data for ${symbol}:`, error);
-        return null;
-    }
-}
-
-// Fetch candle data for charts
-async function fetchCandleData(symbol, resolution = 'D', count = 30) {
-    try {
-        const end = Math.floor(Date.now() / 1000);
-        const start = end - (count * 24 * 60 * 60); // 30 days back
-        const response = await axios.get(
-            `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=${resolution}&from=${start}&to=${end}&token=${FINNHUB_API_KEY}`
-        );
-        return response.data;
-    } catch (error) {
-        console.error(`Error fetching candle data for ${symbol}:`, error);
-        return null;
-    }
-}
-
-// Initialize everything when the DOM is loaded
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Set up market filter
-        document.getElementById('marketFilter').addEventListener('click', (e) => {
-            const button = e.target.closest('.market-btn');
-            if (button) {
-                const market = button.dataset.market;
-                initializeMarketCards(market);
+    // 10. Market Filter Tabs Listener
+    const marketFilter = document.getElementById('marketFilter');
+    if (marketFilter) {
+        marketFilter.addEventListener('click', (e) => {
+            const btn = e.target.closest('.market-btn');
+            if (btn && btn.dataset.market) {
+                initializeMarketCards(btn.dataset.market);
+                selectStock(MARKET_DATA[btn.dataset.market][0].symbol);
             }
         });
-
-        // Initialize with stocks by default
-        initializeMarketCards('stocks');
-        
-        // Initialize main chart with AAPL data
-        await selectStock('AAPL');
-        
-        // Start real-time updates
-        setInterval(updateAllPrices, 10000);
-    } catch (error) {
-        console.error('Error initializing data:', error);
     }
-});
 
-// Create stock card HTML
-function createStockCard(item) {
-    const symbol = item.symbol.replace('BINANCE:', '').replace('^', '');
-    return `
-        <div class="stock-card bg-darker rounded-lg p-4 hover:bg-gray-800 transition-colors cursor-pointer" data-symbol="${item.symbol}" onclick="selectStock('${item.symbol}')">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold">
-                        ${symbol[0]}
-                    </div>
-                    <div>
-                        <div class="font-semibold">${symbol}</div>
-                        <div class="text-sm text-gray-400">${item.name}</div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div id="price-${symbol}" class="font-bold text-xl">--</div>
-                    <div id="change-${symbol}" class="text-sm">--</div>
-                </div>
-            </div>
-            <div class="h-16 w-full">
-                <canvas id="mini-chart-${symbol}"></canvas>
-            </div>
-        </div>
-    `;
-}
+    // 11. Theme Toggle
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+    });
+
+    // 12. Initial Load & Setup
+    initializeTradeForms();
+    initializeMarketCards('stocks');
+    await selectStock('AAPL');
+    await renderPortfolioTable();
+    renderPendingOrdersTable();
+    renderHistoryTable();
+
+    // 13. Background Live Polling (every 3 seconds)
+    setInterval(updateAllPrices, 3000);
+});
