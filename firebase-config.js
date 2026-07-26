@@ -125,6 +125,26 @@ const FirebaseService = {
         }
     },
 
+    async fetchClientWallet(clientId) {
+        this.init();
+        if (!clientId) return null;
+
+        if (this.db) {
+            try {
+                const snapshot = await this.db.ref(`wallets/${clientId}`).once('value');
+                if (snapshot.exists()) return snapshot.val();
+            } catch (e) {}
+        }
+
+        if (window.axios) {
+            try {
+                const res = await axios.get(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/wallets/${clientId}.json`);
+                if (res.data) return res.data;
+            } catch (e) {}
+        }
+        return null;
+    },
+
     async recordClientTrade(clientId, tradeRecord) {
         this.init();
         if (!clientId) return;
@@ -138,6 +158,29 @@ const FirebaseService = {
         if (window.axios) {
             await axios.post(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/transactions/${clientId}.json`, tradeRecord).catch(() => {});
         }
+    },
+
+    async fetchClientTransactions(clientId) {
+        this.init();
+        if (!clientId) return [];
+
+        if (this.db) {
+            try {
+                const snapshot = await this.db.ref(`transactions/${clientId}`).once('value');
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    return Object.values(data);
+                }
+            } catch (e) {}
+        }
+
+        if (window.axios) {
+            try {
+                const res = await axios.get(`https://tradingwebsite-ad609-default-rtdb.firebaseio.com/transactions/${clientId}.json`);
+                if (res.data) return Object.values(res.data);
+            } catch (e) {}
+        }
+        return [];
     }
 };
 
